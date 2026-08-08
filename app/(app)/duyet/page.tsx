@@ -13,7 +13,7 @@ export default function ReviewCenterPage() {
       <EmptyState
         icon="🔒"
         title="Không có quyền truy cập"
-        desc="Trang này chỉ dành cho Quản lý / Account."
+        hint="Trang này chỉ dành cho Quản lý / Account."
       />
     );
   }
@@ -31,7 +31,7 @@ export default function ReviewCenterPage() {
         <EmptyState
           icon="🎉"
           title="Tất cả đã duyệt xong!"
-          desc="Không còn task nào đang kẹt ở trạng thái Chờ duyệt."
+          hint="Không còn task nào đang kẹt ở trạng thái Chờ duyệt."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

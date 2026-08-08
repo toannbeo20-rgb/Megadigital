@@ -92,7 +92,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(useSupabase);
-  const realtimeRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const realtimeRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
 
   // ---- Fetch initial data từ Supabase ----
   useEffect(() => {
