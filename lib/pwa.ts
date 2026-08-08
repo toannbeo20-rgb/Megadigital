@@ -84,19 +84,21 @@ export async function subscribePush(): Promise<PushSubscription | null> {
   }
 }
 
-// Gửi push tới các user khác (server sẽ tra subscription + đẩy).
+// Gửi push tới các user khác (server sẽ tra subscription + đẩy + lưu notification).
+// notiText: chữ hiển thị ở chuông (mặc định = body).
 export async function sendPushToUsers(
   userIds: string[],
   title: string,
   body: string,
-  url = "/"
+  url = "/",
+  notiText?: string
 ) {
   if (userIds.length === 0) return;
   try {
     await fetch("/api/push/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userIds, title, body, url }),
+      body: JSON.stringify({ userIds, title, body, url, notiText }),
     });
   } catch {
     // Không chặn UX nếu push lỗi

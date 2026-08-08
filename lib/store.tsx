@@ -27,6 +27,23 @@ export interface Notification {
   read: boolean;
 }
 
+// Map bản ghi notifications từ DB → shape dùng ở UI
+function mapNoti(row: {
+  id: string;
+  text: string;
+  task_id?: string | null;
+  created_at: string;
+  read: boolean;
+}): Notification {
+  return {
+    id: row.id,
+    text: row.text,
+    taskId: row.task_id ?? undefined,
+    createdAt: new Date(row.created_at).getTime(),
+    read: row.read,
+  };
+}
+
 interface NewTaskInput {
   title: string;
   assignee_id: string;
@@ -122,7 +139,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         // currentUser = bản ghi public.users khớp auth_id
         const me = usersRes.data?.find((u: User & { auth_id?: string }) => u.auth_id === authUser.id);
-        if (me) setCurrentUserId(me.id);
+        if (me) {
+          setCurrentUserId(me.id);
+          // Nạp thông báo đã lưu (chuông không mất khi reload)
+          const { data: notiData } = await supabase!
+            .from("notifications")
+            .select("*")
+            .eq("user_id", me.id)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          if (notiData) setNotifications(notiData.map(mapNoti));
+        }
       } finally {
         setLoading(false);
       }
@@ -155,11 +182,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (prev.find((t) => t.id === newTask.id)) return prev;
           return [newTask, ...prev];
         });
-        // Bắn thông báo nếu task này giao cho mình
-        if (newTask.assignee_id === currentUserId) {
-          pushNoti(`Bạn được giao task mới: "${newTask.title}"`, newTask.id);
-          sendLocalNotification("📋 Task mới được giao", newTask.title, `/cong-viec/${newTask.id}`).catch(() => {});
-        }
+        // Thông báo (chuông + web push) do server xử lý qua bảng notifications + /api/push/send
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks" }, (payload) => {
         setTasks((prev) =>
@@ -209,6 +232,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return [payload.new as Comment, ...prev];
         });
       })
+      // Notifications realtime (chỉ của mình)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${currentUserId}` },
+        (payload) => {
+          const n = mapNoti(payload.new as Parameters<typeof mapNoti>[0]);
+          setNotifications((prev) => (prev.find((x) => x.id === n.id) ? prev : [n, ...prev]));
+        }
+      )
       .subscribe();
 
     realtimeRef.current = channel;
@@ -264,8 +296,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           sendPushToUsers(
             [data.assignee_id],
             "📋 Task mới được giao",
-            data.title,
-            `/cong-viec/${data.id}`
+            `"${data.title}"`,
+            `/cong-viec/${data.id}`,
+            `Bạn được giao: "${data.title}"`
           );
         }
       }
@@ -296,7 +329,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 [dep.assignee_id],
                 "⚡ Tới lượt bạn!",
                 `"${dep.title}" đã sẵn sàng`,
-                `/cong-viec/${dep.id}`
+                `/cong-viec/${dep.id}`,
+                `Tới lượt bạn: "${dep.title}"`
               );
             }
           });
@@ -451,7 +485,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           recipients,
           `💬 ${meName} nhắc bạn`,
           task ? `Trong "${task.title}": ${content}` : content,
-          `/cong-viec/${taskId}`
+          `/cong-viec/${taskId}`,
+          `${meName} nhắc bạn${task ? ` trong "${task.title}"` : ""}`
         );
       }
     } else {
@@ -477,7 +512,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const markAllNotisRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, []);
+    if (useSupabase && supabase && currentUserId) {
+      supabase.from("notifications").update({ read: true }).eq("user_id", currentUserId).eq("read", false);
+    }
+  }, [useSupabase, supabase, currentUserId]);
 
   const value = useMemo<StoreValue>(
     () => ({

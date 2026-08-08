@@ -32,3 +32,40 @@ create table if not exists push_subscriptions (
   created_at  timestamptz not null default now()
 );
 create index if not exists idx_push_subs_user on push_subscriptions(user_id);
+
+-- 5) M1/Slice B — bảng notifications (chuông không mất khi reload + digest sáng)
+create table if not exists notifications (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references users(id) on delete cascade,
+  text        text not null,
+  task_id     uuid references tasks(id) on delete set null,
+  read        boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_notifications_user on notifications(user_id, created_at desc);
+
+alter table notifications enable row level security;
+
+-- chỉ chủ nhân đọc thông báo của mình
+drop policy if exists "notifications: select own" on notifications;
+create policy "notifications: select own" on notifications
+  for select to authenticated
+  using (user_id = (select id from users where auth_id = auth.uid()));
+
+-- chỉ chủ nhân đánh dấu đã đọc thông báo của mình
+drop policy if exists "notifications: update own" on notifications;
+create policy "notifications: update own" on notifications
+  for update to authenticated
+  using (user_id = (select id from users where auth_id = auth.uid()));
+-- (insert chỉ do server/service_role thực hiện → không cần policy insert cho client)
+
+-- realtime cho notifications
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'
+  ) then
+    alter publication supabase_realtime add table notifications;
+  end if;
+end $$;
