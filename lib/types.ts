@@ -89,8 +89,38 @@ export interface Comment {
   user_id: string;
   content: string;
   mentions: string[]; // user_id được @nhắc
+  content_id?: string | null; // nếu là thread gắn vào 1 content (M3)
   created_at: string;
 }
+
+// ---- M3: Content artifact + pipeline duyệt ----
+export type ApprovalStatus = "draft" | "noi_bo" | "gui_khach" | "khach_sua" | "khach_ok";
+
+export interface Content {
+  id: string;
+  task_id: string;
+  title: string;
+  body: string; // markdown nhẹ
+  version: number;
+  approval_status: ApprovalStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Thứ tự vòng duyệt (khach_sua là nhánh quay lại)
+export const APPROVAL_FLOW: ApprovalStatus[] = ["draft", "noi_bo", "gui_khach", "khach_ok"];
+
+export const APPROVAL_META: Record<
+  ApprovalStatus,
+  { label: string; short: string; className: string; dot: string }
+> = {
+  draft:     { label: "Nháp",        short: "Nháp",      className: "bg-slate-500/15 text-slate-400 border-slate-500/25",   dot: "bg-slate-400" },
+  noi_bo:    { label: "Nội bộ duyệt", short: "Nội bộ",   className: "bg-blue-500/15 text-blue-400 border-blue-500/25",       dot: "bg-blue-400" },
+  gui_khach: { label: "Đã gửi khách", short: "Gửi khách", className: "bg-violet-500/15 text-violet-400 border-violet-500/25", dot: "bg-violet-400" },
+  khach_sua: { label: "Khách yêu cầu sửa", short: "Khách sửa", className: "bg-amber-500/15 text-amber-400 border-amber-500/25", dot: "bg-amber-400" },
+  khach_ok:  { label: "Khách duyệt ✓", short: "Khách OK", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25", dot: "bg-emerald-400" },
+};
 
 // ---- Hằng số hiển thị ----
 

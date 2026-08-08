@@ -15,6 +15,7 @@ import {
 } from "@/lib/types";
 import { Avatar, Badge } from "@/components/ui";
 import CommentComposer from "@/components/CommentComposer";
+import ContentPanel from "@/components/ContentPanel";
 import { deadlineLabel, cn } from "@/lib/utils";
 
 const WEIGHT_LABELS: Record<number, { label: string; desc: string; color: string }> = {
@@ -137,7 +138,7 @@ export default function TaskDetailPage() {
   }
 
   const siblingTasks = tasks.filter((t) => t.id !== task!.id && t.client_id === task!.client_id);
-  const taskComments = comments.filter((c) => c.task_id === task!.id).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const taskComments = comments.filter((c) => c.task_id === task!.id && !c.content_id).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   function pingAssignee() {
     // Demo giả lập ping
@@ -451,6 +452,9 @@ export default function TaskDetailPage() {
           )}
         </div>
       )}
+
+      {/* Nội dung / Bài duyệt (M3) */}
+      <ContentPanel task={task} />
 
       {/* Bình luận */}
       <div className="mt-8">

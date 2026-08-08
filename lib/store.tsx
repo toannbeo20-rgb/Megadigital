@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { BriefData, Client, Job, Presence, Task, TaskStatus, User, Comment } from "./types";
+import type { BriefData, Client, Content, Job, Presence, Task, TaskStatus, User, Comment } from "./types";
 import { mockClients, mockJobs, mockTasks, mockUsers } from "./mock-data";
 import { sendLocalNotification, sendPushToUsers } from "./pwa";
 import { getSupabaseBrowser, isSupabaseConfigured } from "./supabase/client";
@@ -85,7 +85,14 @@ interface StoreValue {
   deleteClient: (clientId: string) => Promise<void>;
   addJob: (input: { client_id: string; name: string; type?: string; note?: string }) => Promise<void>;
   updateJob: (jobId: string, patch: Partial<Omit<Job, "id" | "created_at">>) => Promise<void>;
-  addComment: (taskId: string, content: string, mentions?: string[]) => Promise<void>;
+  addComment: (taskId: string, content: string, mentions?: string[], contentId?: string | null) => Promise<void>;
+  contents: Content[];
+  addContent: (taskId: string, title: string, body?: string) => Promise<Content | null>;
+  updateContent: (
+    contentId: string,
+    patch: Partial<Pick<Content, "title" | "body" | "approval_status">>,
+    bumpVersion?: boolean
+  ) => Promise<void>;
   setPresence: (userId: string, presence: Presence, note?: string | null) => Promise<void>;
   markAllNotisRead: () => void;
 }
@@ -136,6 +143,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<Job[]>(useSupabase ? [] : mockJobs);
   const [tasks, setTasks] = useState<Task[]>(useSupabase ? [] : mockTasks);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [contents, setContents] = useState<Content[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(useSupabase);
@@ -153,12 +161,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!authUser) return;
 
         // Fetch toàn bộ data song song
-        const [usersRes, clientsRes, jobsRes, tasksRes, commentsRes] = await Promise.all([
+        const [usersRes, clientsRes, jobsRes, tasksRes, commentsRes, contentsRes] = await Promise.all([
           supabase!.from("users").select("*"),
           supabase!.from("clients").select("*"),
           supabase!.from("jobs").select("*"),
           supabase!.from("tasks").select("*"),
           supabase!.from("comments").select("*"),
+          supabase!.from("contents").select("*"),
         ]);
 
         if (usersRes.data) setUsers(usersRes.data as User[]);
@@ -166,6 +175,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (jobsRes.data) setJobs(jobsRes.data as Job[]);
         if (tasksRes.data) setTasks(tasksRes.data as Task[]);
         if (commentsRes.data) setComments(commentsRes.data as Comment[]);
+        if (contentsRes.data) setContents(contentsRes.data as Content[]);
 
         // currentUser = bản ghi public.users khớp auth_id
         const me = usersRes.data?.find((u: User & { auth_id?: string }) => u.auth_id === authUser.id);
@@ -261,6 +271,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (prev.find((c) => c.id === payload.new.id)) return prev;
           return [payload.new as Comment, ...prev];
         });
+      })
+      // Contents realtime (M3)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "contents" }, (payload) => {
+        const c = payload.new as Content;
+        setContents((prev) => (prev.find((x) => x.id === c.id) ? prev : [c, ...prev]));
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "contents" }, (payload) => {
+        setContents((prev) => prev.map((x) => (x.id === payload.new.id ? (payload.new as Content) : x)));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "contents" }, (payload) => {
+        setContents((prev) => prev.filter((x) => x.id !== payload.old.id));
       })
       // Notifications realtime (chỉ của mình)
       .on(
@@ -485,11 +506,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addComment = useCallback(async (taskId: string, content: string, mentions: string[] = []) => {
+  const addComment = useCallback(async (taskId: string, content: string, mentions: string[] = [], contentId: string | null = null) => {
     if (!content.trim()) return;
     // Không tự nhắc chính mình
     const recipients = mentions.filter((id) => id && id !== currentUserId);
-    const newComment = { task_id: taskId, user_id: currentUserId, content, mentions };
+    const newComment = { task_id: taskId, user_id: currentUserId, content, mentions, content_id: contentId };
     const task = tasks.find((t) => t.id === taskId);
     const meName = currentUser?.name?.replace(/\(.*?\)/g, "").trim() ?? "Ai đó";
 
@@ -519,6 +540,58 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [useSupabase, supabase, currentUserId, tasks, users, currentUser, pushNoti]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addContent = useCallback(async (taskId: string, title: string, body = ""): Promise<Content | null> => {
+    const base = {
+      task_id: taskId,
+      title: title.trim() || "Nội dung mới",
+      body,
+      version: 1,
+      approval_status: "draft" as const,
+      created_by: currentUserId || null,
+    };
+    if (useSupabase && supabase) {
+      const { data, error } = await supabase.from("contents").insert(base).select().single();
+      if (error) {
+        console.error("addContent error:", error);
+        alert(`Lỗi tạo nội dung (đã chạy migration_m3_content.sql chưa?): ${error.message}`);
+        return null;
+      }
+      const c = data as Content;
+      setContents((prev) => (prev.find((x) => x.id === c.id) ? prev : [c, ...prev]));
+      return c;
+    } else {
+      const now = new Date().toISOString();
+      const c: Content = { ...base, id: uid(), created_at: now, updated_at: now };
+      setContents((prev) => [c, ...prev]);
+      return c;
+    }
+  }, [useSupabase, supabase, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateContent = useCallback(async (
+    contentId: string,
+    patch: Partial<Pick<Content, "title" | "body" | "approval_status">>,
+    bumpVersion = false
+  ) => {
+    const current = contents.find((c) => c.id === contentId);
+    const nextVersion = bumpVersion ? (current?.version ?? 1) + 1 : undefined;
+    const payload: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
+    if (nextVersion) payload.version = nextVersion;
+
+    if (useSupabase && supabase) {
+      const { data, error } = await supabase.from("contents").update(payload).eq("id", contentId).select().single();
+      if (error) {
+        console.error("updateContent error:", error);
+        alert(`Lỗi cập nhật nội dung: ${error.message}`);
+      } else if (data) {
+        setContents((prev) => prev.map((c) => (c.id === contentId ? (data as Content) : c)));
+      }
+    } else {
+      setContents((prev) =>
+        prev.map((c) => (c.id === contentId ? { ...c, ...patch, ...(nextVersion ? { version: nextVersion } : {}), updated_at: new Date().toISOString() } : c))
+      );
+    }
+  }, [useSupabase, supabase, contents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setPresence = useCallback(async (userId: string, presence: Presence, note?: string | null) => {
     const patch = { presence, status_note: note ?? null, last_active_at: new Date().toISOString() };
@@ -558,10 +631,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addJob,
       updateJob,
       addComment,
+      contents,
+      addContent,
+      updateContent,
       setPresence,
       markAllNotisRead,
     }),
-    [users, clientsState, jobs, tasks, comments, notifications, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, addJob, updateJob, addComment, setPresence, markAllNotisRead]
+    [users, clientsState, jobs, tasks, comments, contents, notifications, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, addJob, updateJob, addComment, addContent, updateContent, setPresence, markAllNotisRead]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
