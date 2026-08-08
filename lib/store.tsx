@@ -1,0 +1,454 @@
+"use client";
+
+// Store trung tâm — "một nguồn dữ liệu, nhiều lăng kính" (mục 2, đặc tả).
+// Đã kết nối Supabase: fetch thật, mutation thật, realtime subscribe.
+// Nếu env chưa cấu hình → fallback về mock data để dev offline.
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import type { Client, Job, Presence, Task, TaskStatus, User, Comment } from "./types";
+import { mockClients, mockJobs, mockTasks, mockUsers } from "./mock-data";
+import { sendLocalNotification } from "./pwa";
+import { getSupabaseBrowser, isSupabaseConfigured } from "./supabase/client";
+
+export interface Notification {
+  id: string;
+  text: string;
+  taskId?: string;
+  createdAt: number;
+  read: boolean;
+}
+
+interface NewTaskInput {
+  title: string;
+  assignee_id: string;
+  client_id?: string | null;
+  job_id?: string | null;
+  deadline: string;
+  kind?: Task["kind"];
+  weight?: number;
+  depends_on_task_id?: string | null;
+  brief?: string | null;
+}
+
+interface StoreValue {
+  users: User[];
+  clients: Client[];
+  jobs: Job[];
+  tasks: Task[];
+  comments: Comment[];
+  notifications: Notification[];
+  currentUser: User;
+  loading: boolean;
+  setCurrentUser: (id: string) => void;
+  addTask: (input: NewTaskInput) => Promise<void>;
+  moveTask: (taskId: string, status: TaskStatus) => Promise<void>;
+  updateTask: (taskId: string, patch: Partial<Omit<Task, "id" | "created_at">>) => Promise<void>;
+  addClient: (input: { 
+    name: string; 
+    account_id?: string; 
+    note?: string;
+    contact_person?: string;
+    phone?: string;
+    email?: string;
+    industry?: string;
+    tier?: string;
+    status?: string;
+  }) => Promise<void>;
+  updateClient: (clientId: string, patch: Partial<Omit<Client, "id" | "created_at">>) => Promise<void>;
+  deleteClient: (clientId: string) => Promise<void>;
+  addJob: (input: { client_id: string; name: string; type?: string; note?: string }) => Promise<void>;
+  updateJob: (jobId: string, patch: Partial<Omit<Job, "id" | "created_at">>) => Promise<void>;
+  addComment: (taskId: string, content: string) => Promise<void>;
+  setPresence: (userId: string, presence: Presence, note?: string | null) => Promise<void>;
+  markAllNotisRead: () => void;
+}
+
+const StoreContext = createContext<StoreValue | null>(null);
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+export function StoreProvider({ children }: { children: ReactNode }) {
+  const supabase = getSupabaseBrowser();
+  const useSupabase = isSupabaseConfigured && !!supabase;
+
+  // --- State ---
+  const [users, setUsers] = useState<User[]>(useSupabase ? [] : mockUsers);
+  const [clients] = useState<Client[]>(useSupabase ? [] : mockClients);
+  const [clientsState, setClientsState] = useState<Client[]>(useSupabase ? [] : mockClients);
+  const [jobs, setJobs] = useState<Job[]>(useSupabase ? [] : mockJobs);
+  const [tasks, setTasks] = useState<Task[]>(useSupabase ? [] : mockTasks);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [loading, setLoading] = useState(useSupabase);
+  const realtimeRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // ---- Fetch initial data từ Supabase ----
+  useEffect(() => {
+    if (!useSupabase || !supabase) return;
+
+    async function bootstrap() {
+      setLoading(true);
+      try {
+        // Lấy auth user hiện tại
+        const { data: { user: authUser } } = await supabase!.auth.getUser();
+        if (!authUser) return;
+
+        // Fetch toàn bộ data song song
+        const [usersRes, clientsRes, jobsRes, tasksRes, commentsRes] = await Promise.all([
+          supabase!.from("users").select("*"),
+          supabase!.from("clients").select("*"),
+          supabase!.from("jobs").select("*"),
+          supabase!.from("tasks").select("*"),
+          supabase!.from("comments").select("*"),
+        ]);
+
+        if (usersRes.data) setUsers(usersRes.data as User[]);
+        if (clientsRes.data) setClientsState(clientsRes.data as Client[]);
+        if (jobsRes.data) setJobs(jobsRes.data as Job[]);
+        if (tasksRes.data) setTasks(tasksRes.data as Task[]);
+        if (commentsRes.data) setComments(commentsRes.data as Comment[]);
+
+        // currentUser = bản ghi public.users khớp auth_id
+        const me = usersRes.data?.find((u: User & { auth_id?: string }) => u.auth_id === authUser.id);
+        if (me) setCurrentUserId(me.id);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    bootstrap();
+  }, [useSupabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- Notifications helper ----
+  const pushNoti = useCallback((text: string, taskId?: string) => {
+    setNotifications((prev) => [
+      { id: uid(), text, taskId, createdAt: Date.now(), read: false },
+      ...prev,
+    ]);
+  }, []);
+
+  // ---- Realtime subscriptions ----
+  useEffect(() => {
+    if (!useSupabase || !supabase) return;
+
+    // Unsubscribe cũ nếu có
+    realtimeRef.current?.unsubscribe();
+
+    const channel = supabase
+      .channel("app-realtime")
+      // Tasks realtime
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "tasks" }, (payload) => {
+        const newTask = payload.new as Task;
+        setTasks((prev) => {
+          if (prev.find((t) => t.id === newTask.id)) return prev;
+          return [newTask, ...prev];
+        });
+        // Bắn thông báo nếu task này giao cho mình
+        if (newTask.assignee_id === currentUserId) {
+          pushNoti(`Bạn được giao task mới: "${newTask.title}"`, newTask.id);
+          sendLocalNotification("📋 Task mới được giao", newTask.title, `/cong-viec/${newTask.id}`).catch(() => {});
+        }
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks" }, (payload) => {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === payload.new.id ? (payload.new as Task) : t))
+        );
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks" }, (payload) => {
+        setTasks((prev) => prev.filter((t) => t.id !== payload.old.id));
+      })
+      // Users realtime (presence)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "users" }, (payload) => {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === payload.new.id ? (payload.new as User) : u))
+        );
+      })
+      // Clients realtime
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "clients" }, (payload) => {
+        setClientsState((prev) => {
+          if (prev.find((c) => c.id === payload.new.id)) return prev;
+          return [payload.new as Client, ...prev];
+        });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "clients" }, (payload) => {
+        setClientsState((prev) =>
+          prev.map((c) => (c.id === payload.new.id ? (payload.new as Client) : c))
+        );
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "clients" }, (payload) => {
+        setClientsState((prev) => prev.filter((c) => c.id !== payload.old.id));
+      })
+      // Jobs realtime
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "jobs" }, (payload) => {
+        setJobs((prev) => {
+          if (prev.find((j) => j.id === payload.new.id)) return prev;
+          return [payload.new as Job, ...prev];
+        });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs" }, (payload) => {
+        setJobs((prev) =>
+          prev.map((j) => (j.id === payload.new.id ? (payload.new as Job) : j))
+        );
+      })
+      // Comments realtime
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, (payload) => {
+        setComments((prev) => {
+          if (prev.find((c) => c.id === payload.new.id)) return prev;
+          return [payload.new as Comment, ...prev];
+        });
+      })
+      .subscribe();
+
+    realtimeRef.current = channel;
+    return () => { channel.unsubscribe(); };
+  }, [useSupabase, currentUserId, pushNoti]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- currentUser ----
+  const currentUser = useMemo(
+    () => users.find((u) => u.id === currentUserId) ?? users[0] ?? mockUsers[0],
+    [users, currentUserId]
+  );
+
+  // ---- Notifications helper (đã chuyển lên trên) ----
+
+  // ---- Mutations ----
+
+  const addTask = useCallback(async (input: NewTaskInput) => {
+    const newTask: Omit<Task, "id" | "created_at"> = {
+      client_id: input.client_id ?? null,
+      job_id: input.job_id ?? null,
+      title: input.title,
+      assignee_id: input.assignee_id,
+      kind: input.kind ?? null,
+      weight: input.weight ?? 1,
+      deadline: input.deadline,
+      depends_on_task_id: input.depends_on_task_id ?? null,
+      brief: input.brief ?? null,
+      status: "ton",
+      completed_at: null,
+      approval_status: null,
+    };
+
+    if (useSupabase && supabase) {
+      const { data, error } = await supabase.from("tasks").insert(newTask).select().single();
+      if (error) {
+        console.error("Error adding task:", error);
+        alert(`Lỗi tạo task: ${error.message}\nBạn đã chạy lệnh SQL chưa?`);
+      } else if (data) {
+        setTasks((prev) => {
+          if (prev.find((t) => t.id === data.id)) return prev;
+          return [data, ...prev];
+        });
+      }
+      // Noti sẽ được xử lý qua Realtime subscriber
+    } else {
+      // Fallback mock
+      const t: Task = { ...newTask, id: uid(), created_at: new Date().toISOString() };
+      setTasks((prev) => [t, ...prev]);
+      pushNoti(`Bạn được giao task mới: "${t.title}"`, t.id);
+      sendLocalNotification("📋 Task mới được giao", t.title, `/cong-viec/${t.id}`).catch(() => {});
+    }
+  }, [useSupabase, supabase, pushNoti]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const moveTask = useCallback(async (taskId: string, status: TaskStatus) => {
+    if (useSupabase && supabase) {
+      const { data, error } = await supabase.from("tasks").update({ status }).eq("id", taskId).select().single();
+      if (error) {
+        console.error("moveTask error:", error);
+        alert(`Lỗi chuyển trạng thái: ${error.message}`);
+      } else if (data) {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? data : t)));
+      }
+    } else {
+      setTasks((prev) => {
+        const next = prev.map((t) =>
+          t.id === taskId
+            ? { ...t, status, completed_at: status === "xong" ? new Date().toISOString() : null }
+            : t
+        );
+        if (status === "xong") {
+          const dependents = next.filter((t) => t.depends_on_task_id === taskId);
+          dependents.forEach((dep) => {
+            pushNoti(`Tới lượt bạn: "${dep.title}" đã sẵn sàng`, dep.id);
+            sendLocalNotification("⚡ Tới lượt bạn!", `"${dep.title}" đã sẵn sàng`, `/cong-viec/${dep.id}`).catch(() => {});
+          });
+        }
+        return next;
+      });
+    }
+  }, [useSupabase, supabase, pushNoti]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateTask = useCallback(async (taskId: string, patch: Partial<Omit<Task, "id" | "created_at">>) => {
+    if (useSupabase && supabase) {
+      const { data, error } = await supabase.from("tasks").update(patch).eq("id", taskId).select().single();
+      if (error) {
+        console.error("updateTask error:", error);
+        alert(`Lỗi cập nhật task: ${error.message}`);
+      } else if (data) {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? data : t)));
+      }
+    } else {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                ...patch,
+                completed_at:
+                  patch.status === "xong"
+                    ? new Date().toISOString()
+                    : patch.status !== undefined
+                    ? null
+                    : t.completed_at,
+              }
+            : t
+        )
+      );
+    }
+  }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addClient = useCallback(async (input: { 
+    name: string; 
+    account_id?: string; 
+    note?: string;
+    contact_person?: string;
+    phone?: string;
+    email?: string;
+    industry?: string;
+    tier?: string;
+    status?: string;
+  }) => {
+    const newClient = { 
+      name: input.name, 
+      account_id: input.account_id ?? null, 
+      note: input.note ?? null,
+      contact_person: input.contact_person ?? null,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+      industry: input.industry ?? null,
+      tier: input.tier ?? null,
+      status: input.status ?? "active"
+    };
+    if (useSupabase && supabase) {
+      const { error } = await supabase.from("clients").insert(newClient);
+      if (error) {
+        console.error("Error adding client:", error);
+        alert(`Lỗi khi tạo khách hàng (Có thể do bạn chưa chạy lệnh SQL Update Database): ${error.message}`);
+      }
+    } else {
+      const c: Client = { ...newClient, id: uid(), created_at: new Date().toISOString() };
+      setClientsState((prev) => [c, ...prev]);
+    }
+  }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateClient = useCallback(async (clientId: string, patch: Partial<Omit<Client, "id" | "created_at">>) => {
+    if (useSupabase && supabase) {
+      await supabase.from("clients").update(patch).eq("id", clientId);
+    } else {
+      setClientsState((prev) => prev.map((c) => (c.id === clientId ? { ...c, ...patch } : c)));
+    }
+  }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const deleteClient = useCallback(async (clientId: string) => {
+    if (useSupabase && supabase) {
+      await supabase.from("clients").delete().eq("id", clientId);
+    } else {
+      setClientsState((prev) => prev.filter((c) => c.id !== clientId));
+      setJobs((prev) => prev.filter((j) => j.client_id !== clientId));
+    }
+  }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addJob = useCallback(async (input: { client_id: string; name: string; type?: string; note?: string }) => {
+    const newJob = { ...input, status: "pitch" as const, type: input.type ?? null, note: input.note ?? null };
+    if (useSupabase && supabase) {
+      await supabase.from("jobs").insert(newJob);
+    } else {
+      const j: Job = { ...newJob, id: uid(), created_at: new Date().toISOString() };
+      setJobs((prev) => [j, ...prev]);
+    }
+  }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateJob = useCallback(async (jobId: string, patch: Partial<Omit<Job, "id" | "created_at">>) => {
+    if (useSupabase && supabase) {
+      await supabase.from("jobs").update(patch).eq("id", jobId);
+    } else {
+      setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, ...patch } : j)));
+    }
+  }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addComment = useCallback(async (taskId: string, content: string) => {
+    if (!content.trim()) return;
+    const newComment = { task_id: taskId, user_id: currentUserId, content };
+    if (useSupabase && supabase) {
+      const { error } = await supabase.from("comments").insert(newComment);
+      if (error) {
+        console.error("addComment error:", error);
+        alert(`Lỗi thêm bình luận: ${error.message}`);
+      }
+    } else {
+      const c: Comment = { ...newComment, id: uid(), created_at: new Date().toISOString() };
+      setComments((prev) => [...prev, c]);
+    }
+  }, [useSupabase, supabase, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setPresence = useCallback(async (userId: string, presence: Presence, note?: string | null) => {
+    const patch = { presence, status_note: note ?? null, last_active_at: new Date().toISOString() };
+    if (useSupabase && supabase) {
+      await supabase.from("users").update(patch).eq("id", userId);
+    }
+    // Luôn update local ngay để UI phản hồi tức thì (optimistic)
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, ...patch } : u))
+    );
+  }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const markAllNotisRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
+  const value = useMemo<StoreValue>(
+    () => ({
+      users,
+      clients: clientsState,
+      jobs,
+      tasks,
+      comments,
+      notifications,
+      currentUser,
+      loading,
+      setCurrentUser: setCurrentUserId,
+      addClient,
+      updateClient,
+      deleteClient,
+      addTask,
+      moveTask,
+      updateTask,
+      addJob,
+      updateJob,
+      addComment,
+      setPresence,
+      markAllNotisRead,
+    }),
+    [users, clientsState, jobs, tasks, comments, notifications, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, addJob, updateJob, addComment, setPresence, markAllNotisRead]
+  );
+
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+}
+
+export function useStore() {
+  const ctx = useContext(StoreContext);
+  if (!ctx) throw new Error("useStore must be used within StoreProvider");
+  return ctx;
+}

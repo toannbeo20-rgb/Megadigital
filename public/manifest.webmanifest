@@ -1,0 +1,37 @@
+{
+  "name": "Mega Digital — Quản lý công việc",
+  "short_name": "Mega Digital",
+  "description": "App nội bộ quản lý job & task cho team Mega Digital Agency",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#090909",
+  "theme_color": "#AAED2A",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Hôm nay",
+      "url": "/",
+      "description": "Xem task hôm nay"
+    },
+    {
+      "name": "Công việc",
+      "url": "/cong-viec",
+      "description": "Kanban board"
+    }
+  ]
+}
