@@ -242,10 +242,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     if (useSupabase && supabase) {
-      const { data, error } = await supabase.from("tasks").insert(newTask).select().single();
+      let { data, error } = await supabase.from("tasks").insert(newTask).select().single();
+      // Tự lành: nếu DB chưa có cột brief → thử lại không kèm brief
+      if (error && /brief/i.test(error.message)) {
+        console.warn("[store] Cột tasks.brief chưa tồn tại — lưu task không kèm brief. Hãy chạy migration_fix_all.sql.");
+        const { brief: _drop, ...withoutBrief } = newTask;
+        void _drop;
+        ({ data, error } = await supabase.from("tasks").insert(withoutBrief).select().single());
+      }
       if (error) {
         console.error("Error adding task:", error);
-        alert(`Lỗi tạo task: ${error.message}\nBạn đã chạy lệnh SQL chưa?`);
+        alert(`Lỗi tạo task: ${error.message}`);
       } else if (data) {
         setTasks((prev) => {
           if (prev.find((t) => t.id === data.id)) return prev;
@@ -316,7 +323,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateTask = useCallback(async (taskId: string, patch: Partial<Omit<Task, "id" | "created_at">>) => {
     if (useSupabase && supabase) {
-      const { data, error } = await supabase.from("tasks").update(patch).eq("id", taskId).select().single();
+      let { data, error } = await supabase.from("tasks").update(patch).eq("id", taskId).select().single();
+      // Tự lành: nếu DB chưa có cột brief → thử lại không kèm brief
+      if (error && /brief/i.test(error.message)) {
+        console.warn("[store] Cột tasks.brief chưa tồn tại — cập nhật không kèm brief. Hãy chạy migration_fix_all.sql.");
+        const { brief: _drop, ...rest } = patch;
+        void _drop;
+        if (Object.keys(rest).length > 0) {
+          ({ data, error } = await supabase.from("tasks").update(rest).eq("id", taskId).select().single());
+        } else {
+          error = null; // chỉ có mỗi brief → coi như bỏ qua
+        }
+      }
       if (error) {
         console.error("updateTask error:", error);
         alert(`Lỗi cập nhật task: ${error.message}`);
