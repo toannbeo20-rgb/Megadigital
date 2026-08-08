@@ -70,6 +70,7 @@ export interface Comment {
   task_id: string;
   user_id: string;
   content: string;
+  mentions: string[]; // user_id được @nhắc
   created_at: string;
 }
 

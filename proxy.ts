@@ -58,6 +58,6 @@ export default async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Bỏ qua Next.js internals và static files
-    "/((?!_next/static|_next/image|favicon.ico|logo.jpg|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|logo.jpg|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

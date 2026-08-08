@@ -67,7 +67,7 @@ interface StoreValue {
   deleteClient: (clientId: string) => Promise<void>;
   addJob: (input: { client_id: string; name: string; type?: string; note?: string }) => Promise<void>;
   updateJob: (jobId: string, patch: Partial<Omit<Job, "id" | "created_at">>) => Promise<void>;
-  addComment: (taskId: string, content: string) => Promise<void>;
+  addComment: (taskId: string, content: string, mentions?: string[]) => Promise<void>;
   setPresence: (userId: string, presence: Presence, note?: string | null) => Promise<void>;
   markAllNotisRead: () => void;
 }
@@ -412,20 +412,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addComment = useCallback(async (taskId: string, content: string) => {
+  const addComment = useCallback(async (taskId: string, content: string, mentions: string[] = []) => {
     if (!content.trim()) return;
-    const newComment = { task_id: taskId, user_id: currentUserId, content };
+    // Không tự nhắc chính mình
+    const recipients = mentions.filter((id) => id && id !== currentUserId);
+    const newComment = { task_id: taskId, user_id: currentUserId, content, mentions };
+    const task = tasks.find((t) => t.id === taskId);
+    const meName = currentUser?.name?.replace(/\(.*?\)/g, "").trim() ?? "Ai đó";
+
     if (useSupabase && supabase) {
       const { error } = await supabase.from("comments").insert(newComment);
       if (error) {
         console.error("addComment error:", error);
         alert(`Lỗi thêm bình luận: ${error.message}`);
+        return;
+      }
+      // Bắn web push cho những người được @nhắc
+      if (recipients.length > 0) {
+        sendPushToUsers(
+          recipients,
+          `💬 ${meName} nhắc bạn`,
+          task ? `Trong "${task.title}": ${content}` : content,
+          `/cong-viec/${taskId}`
+        );
       }
     } else {
       const c: Comment = { ...newComment, id: uid(), created_at: new Date().toISOString() };
       setComments((prev) => [...prev, c]);
+      // Mock: hiển thị noti in-app để demo luồng @nhắc
+      recipients.forEach(() => {
+        pushNoti(`${meName} nhắc bạn trong "${task?.title ?? "task"}"`, taskId);
+      });
     }
-  }, [useSupabase, supabase, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [useSupabase, supabase, currentUserId, tasks, users, currentUser, pushNoti]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setPresence = useCallback(async (userId: string, presence: Presence, note?: string | null) => {
     const patch = { presence, status_note: note ?? null, last_active_at: new Date().toISOString() };

@@ -12,6 +12,7 @@ import {
   type TaskStatus,
 } from "@/lib/types";
 import { Avatar, Badge } from "@/components/ui";
+import CommentComposer from "@/components/CommentComposer";
 import { deadlineLabel, cn } from "@/lib/utils";
 
 const WEIGHT_LABELS: Record<number, { label: string; desc: string; color: string }> = {
@@ -49,7 +50,6 @@ export default function TaskDetailPage() {
   const [editDepends, setEditDepends] = useState<string | null>(null);
   const [editBrief, setEditBrief] = useState<string>("");
   const [saved, setSaved] = useState(false);
-  const [commentText, setCommentText] = useState("");
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitLink, setSubmitLink] = useState("");
   const [submitNote, setSubmitNote] = useState("");
@@ -122,14 +122,6 @@ export default function TaskDetailPage() {
 
   const siblingTasks = tasks.filter((t) => t.id !== task!.id && t.client_id === task!.client_id);
   const taskComments = comments.filter((c) => c.task_id === task!.id).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-  function handleAddComment(e: React.FormEvent) {
-    e.preventDefault();
-    if (commentText.trim()) {
-      addComment(task!.id, commentText);
-      setCommentText("");
-    }
-  }
 
   function pingAssignee() {
     // Demo giả lập ping
@@ -414,7 +406,7 @@ export default function TaskDetailPage() {
                       <span className="text-[10px] text-[var(--text-faint)]">{new Date(c.created_at).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div className="mt-0.5 rounded-2xl rounded-tl-none bg-[var(--surface-2)] px-4 py-2 text-sm text-[var(--text)] whitespace-pre-wrap">
-                      {c.content}
+                      {renderWithMentions(c.content, users)}
                     </div>
                   </div>
                 </div>
@@ -422,28 +414,11 @@ export default function TaskDetailPage() {
             })
           )}
         </div>
-        <form onSubmit={handleAddComment} className="flex items-end gap-2">
-          <textarea
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleAddComment(e);
-              }
-            }}
-            placeholder="Nhập phản hồi... (Enter để gửi)"
-            className="flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm outline-none focus:border-[var(--accent)]"
-            rows={2}
-          />
-          <button
-            type="submit"
-            disabled={!commentText.trim()}
-            className="btn-accent h-[46px] rounded-xl px-4 text-sm font-bold disabled:opacity-50"
-          >
-            Gửi
-          </button>
-        </form>
+        <CommentComposer
+          users={users}
+          currentUserId={currentUser.id}
+          onSubmit={(text, mentions) => addComment(task!.id, text, mentions)}
+        />
       </div>
 
       {/* Meta footer */}
@@ -496,6 +471,32 @@ export default function TaskDetailPage() {
       )}
     </div>
   );
+}
+
+// Tô sáng các thẻ "@Tên" khớp với thành viên trong team.
+function renderWithMentions(text: string, users: { id: string; name: string }[]) {
+  const names = users
+    .map((u) => u.name.replace(/\(.*?\)/g, "").trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length); // ưu tiên khớp tên dài trước
+  if (names.length === 0) return text;
+  const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`@(${escaped.join("|")})`, "g");
+  const parts: (string | React.ReactElement)[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(
+      <span key={key++} className="font-semibold text-[var(--accent)]">
+        {m[0]}
+      </span>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
 }
 
 function FieldBlock({ label, children }: { label: string; children: React.ReactNode }) {
