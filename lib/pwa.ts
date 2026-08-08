@@ -35,9 +35,27 @@ export function usePWA() {
   }, [router]);
 }
 
-// Xin quyền push + subscribe (gọi khi user đồng ý)
+// Chuyển VAPID public key (base64url) → Uint8Array cho applicationServerKey
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const buffer = new ArrayBuffer(raw.length);
+  const output = new Uint8Array(buffer);
+  for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
+  return output;
+}
+
+// Xin quyền push + subscribe thật (VAPID) + lưu subscription lên server.
+// Gọi khi user bấm "Bật thông báo".
 export async function subscribePush(): Promise<PushSubscription | null> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return null;
+  }
+
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidKey) {
+    console.warn("[PWA] Thiếu NEXT_PUBLIC_VAPID_PUBLIC_KEY — chỉ dùng local notification.");
     return null;
   }
 
@@ -46,13 +64,42 @@ export async function subscribePush(): Promise<PushSubscription | null> {
 
   try {
     const reg = await navigator.serviceWorker.ready;
-    // Phase 1: dùng applicationServerKey placeholder (thay bằng VAPID key thật khi có backend)
-    // Hiện tại chỉ đăng ký SW để test, chưa gửi push thật
-    const sub = await reg.pushManager.getSubscription();
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+    }
+    // Lưu subscription lên server để gửi push kể cả khi app đóng
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sub),
+    }).catch(() => {});
     return sub;
   } catch (err) {
     console.warn("[PWA] Push subscribe failed:", err);
     return null;
+  }
+}
+
+// Gửi push tới các user khác (server sẽ tra subscription + đẩy).
+export async function sendPushToUsers(
+  userIds: string[],
+  title: string,
+  body: string,
+  url = "/"
+) {
+  if (userIds.length === 0) return;
+  try {
+    await fetch("/api/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userIds, title, body, url }),
+    });
+  } catch {
+    // Không chặn UX nếu push lỗi
   }
 }
 

@@ -16,7 +16,7 @@ import {
 } from "react";
 import type { Client, Job, Presence, Task, TaskStatus, User, Comment } from "./types";
 import { mockClients, mockJobs, mockTasks, mockUsers } from "./mock-data";
-import { sendLocalNotification } from "./pwa";
+import { sendLocalNotification, sendPushToUsers } from "./pwa";
 import { getSupabaseBrowser, isSupabaseConfigured } from "./supabase/client";
 
 export interface Notification {
@@ -251,8 +251,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (prev.find((t) => t.id === data.id)) return prev;
           return [data, ...prev];
         });
+        // Gửi web push cho người được giao (kể cả khi họ đóng app).
+        // Không gửi nếu tự giao cho chính mình.
+        if (data.assignee_id && data.assignee_id !== currentUserId) {
+          sendPushToUsers(
+            [data.assignee_id],
+            "📋 Task mới được giao",
+            data.title,
+            `/cong-viec/${data.id}`
+          );
+        }
       }
-      // Noti sẽ được xử lý qua Realtime subscriber
+      // Noti trong-app xử lý qua Realtime subscriber
     } else {
       // Fallback mock
       const t: Task = { ...newTask, id: uid(), created_at: new Date().toISOString() };
@@ -260,7 +270,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       pushNoti(`Bạn được giao task mới: "${t.title}"`, t.id);
       sendLocalNotification("📋 Task mới được giao", t.title, `/cong-viec/${t.id}`).catch(() => {});
     }
-  }, [useSupabase, supabase, pushNoti]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [useSupabase, supabase, pushNoti, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const moveTask = useCallback(async (taskId: string, status: TaskStatus) => {
     if (useSupabase && supabase) {
@@ -270,6 +280,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         alert(`Lỗi chuyển trạng thái: ${error.message}`);
       } else if (data) {
         setTasks((prev) => prev.map((t) => (t.id === taskId ? data : t)));
+        // Handoff: task xong → báo "tới lượt bạn" cho assignee của các task phụ thuộc.
+        if (data.status === "xong") {
+          const dependents = tasks.filter((t) => t.depends_on_task_id === taskId);
+          dependents.forEach((dep) => {
+            if (dep.assignee_id && dep.assignee_id !== currentUserId) {
+              sendPushToUsers(
+                [dep.assignee_id],
+                "⚡ Tới lượt bạn!",
+                `"${dep.title}" đã sẵn sàng`,
+                `/cong-viec/${dep.id}`
+              );
+            }
+          });
+        }
       }
     } else {
       setTasks((prev) => {
@@ -288,7 +312,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return next;
       });
     }
-  }, [useSupabase, supabase, pushNoti]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [useSupabase, supabase, pushNoti, tasks, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateTask = useCallback(async (taskId: string, patch: Partial<Omit<Task, "id" | "created_at">>) => {
     if (useSupabase && supabase) {

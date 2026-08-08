@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePWA, sendLocalNotification } from "@/lib/pwa";
+import { usePWA, sendLocalNotification, subscribePush } from "@/lib/pwa";
 import Image from "next/image";
 
 // BeforeInstallPromptEvent không có trong TS stdlib
@@ -20,7 +20,10 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     // Kiểm tra push permission hiện tại
     if ("Notification" in window) {
-      setPushGranted(Notification.permission === "granted");
+      const granted = Notification.permission === "granted";
+      setPushGranted(granted);
+      // Đã cấp quyền từ trước → đảm bảo server có subscription mới nhất của thiết bị này
+      if (granted) subscribePush().catch(() => {});
     }
 
     // Bắt sự kiện install prompt (Chrome/Android)
@@ -63,9 +66,11 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   }
 
   async function enableNotifications() {
-    const perm = await Notification.requestPermission();
-    setPushGranted(perm === "granted");
-    if (perm === "granted") {
+    // subscribePush đã tự requestPermission + đăng ký + lưu subscription lên server.
+    await subscribePush();
+    const granted = "Notification" in window && Notification.permission === "granted";
+    setPushGranted(granted);
+    if (granted) {
       await sendLocalNotification(
         "Mega Digital 🟢",
         "Thông báo đã bật! Bạn sẽ nhận thông báo khi được giao task.",
