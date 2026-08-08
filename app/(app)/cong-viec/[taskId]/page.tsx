@@ -8,6 +8,8 @@ import {
   KIND_META,
   TASK_STATUS_META,
   JOB_STATUS_META,
+  BRIEF_FIELDS,
+  type BriefData,
   type TaskKind,
   type TaskStatus,
 } from "@/lib/types";
@@ -49,6 +51,8 @@ export default function TaskDetailPage() {
   const [editWeight, setEditWeight] = useState(1);
   const [editDepends, setEditDepends] = useState<string | null>(null);
   const [editBrief, setEditBrief] = useState<string>("");
+  const [editBriefData, setEditBriefData] = useState<BriefData>({});
+  const [editRefs, setEditRefs] = useState<string>(""); // mỗi dòng 1 link
   const [saved, setSaved] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitLink, setSubmitLink] = useState("");
@@ -63,6 +67,8 @@ export default function TaskDetailPage() {
       setEditWeight(task.weight);
       setEditDepends(task.depends_on_task_id);
       setEditBrief(task.brief ?? "");
+      setEditBriefData(task.brief_data ?? {});
+      setEditRefs((task.brief_data?.refs ?? []).join("\n"));
     }
   }, [task]);
 
@@ -85,6 +91,15 @@ export default function TaskDetailPage() {
   const canEdit = isManager || task.assignee_id === currentUser.id;
 
   function save() {
+    const refs = editRefs.split("\n").map((s) => s.trim()).filter(Boolean);
+    const bd: BriefData = {
+      objective: editBriefData.objective?.trim() || undefined,
+      audience: editBriefData.audience?.trim() || undefined,
+      key_message: editBriefData.key_message?.trim() || undefined,
+      format: editBriefData.format?.trim() || undefined,
+      refs: refs.length ? refs : undefined,
+    };
+    const hasBrief = Object.values(bd).some((v) => (Array.isArray(v) ? v.length > 0 : Boolean(v)));
     updateTask(task!.id, {
       title: editTitle.trim() || task!.title,
       assignee_id: editAssignee,
@@ -93,6 +108,7 @@ export default function TaskDetailPage() {
       weight: editWeight,
       depends_on_task_id: editDepends,
       brief: editBrief.trim() ? editBrief.trim() : null,
+      brief_data: hasBrief ? bd : null,
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -322,21 +338,69 @@ export default function TaskDetailPage() {
           )}
         </FieldBlock>
 
-        {/* Brief */}
+        {/* Brief có cấu trúc (M2) */}
+        <div className="card p-4 md:col-span-2">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-faint)]">
+            Brief công việc
+          </p>
+
+          {canEdit ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {BRIEF_FIELDS.map((f) =>
+                f.multiline ? (
+                  <div key={f.key} className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">{f.label}</label>
+                    <textarea
+                      value={editBriefData[f.key] ?? ""}
+                      onChange={(e) => setEditBriefData((d) => ({ ...d, [f.key]: e.target.value }))}
+                      rows={2}
+                      placeholder={f.placeholder}
+                      className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                    />
+                  </div>
+                ) : (
+                  <div key={f.key}>
+                    <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">{f.label}</label>
+                    <input
+                      value={editBriefData[f.key] ?? ""}
+                      onChange={(e) => setEditBriefData((d) => ({ ...d, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                    />
+                  </div>
+                )
+              )}
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">Link tham khảo (mỗi dòng 1 link)</label>
+                <textarea
+                  value={editRefs}
+                  onChange={(e) => setEditRefs(e.target.value)}
+                  rows={2}
+                  placeholder="https://drive.google.com/...&#10;https://figma.com/..."
+                  className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+            </div>
+          ) : (
+            <BriefView data={task.brief_data} />
+          )}
+        </div>
+
+        {/* Ghi chú / tài liệu tự do (+ bàn giao) */}
         <div className="card p-4 md:col-span-2">
           <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-[var(--text-faint)]">
-            Brief / Yêu cầu
+            Ghi chú / tài liệu
           </p>
           {canEdit ? (
             <textarea
               value={editBrief}
               onChange={(e) => setEditBrief(e.target.value)}
-              rows={4}
-              placeholder="Nhập yêu cầu công việc chi tiết..."
+              rows={3}
+              placeholder="Ghi chú thêm, tài liệu bàn giao..."
               className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
             />
           ) : (
-            <div className="text-sm whitespace-pre-wrap rounded-xl bg-[var(--surface-2)] p-3 min-h-20">
+            <div className="text-sm whitespace-pre-wrap rounded-xl bg-[var(--surface-2)] p-3 min-h-16">
               {task.brief || <span className="text-[var(--text-faint)] italic">Không có nội dung</span>}
             </div>
           )}
@@ -497,6 +561,46 @@ function renderWithMentions(text: string, users: { id: string; name: string }[])
   }
   if (last < text.length) parts.push(text.slice(last));
   return parts;
+}
+
+// Hiển thị brief có cấu trúc ở chế độ chỉ đọc
+function BriefView({ data }: { data?: BriefData | null }) {
+  const hasAny =
+    data &&
+    (data.objective || data.audience || data.key_message || data.format || (data.refs && data.refs.length > 0));
+  if (!hasAny) {
+    return <p className="text-sm italic text-[var(--text-faint)]">Chưa có brief. Bấm sửa để thêm.</p>;
+  }
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {BRIEF_FIELDS.map((f) =>
+        data![f.key] ? (
+          <div key={f.key} className={f.multiline ? "sm:col-span-2" : undefined}>
+            <p className="text-xs font-medium text-[var(--text-faint)]">{f.label}</p>
+            <p className="text-sm text-[var(--text)] whitespace-pre-wrap">{data![f.key]}</p>
+          </div>
+        ) : null
+      )}
+      {data!.refs && data!.refs.length > 0 && (
+        <div className="sm:col-span-2">
+          <p className="mb-1 text-xs font-medium text-[var(--text-faint)]">Link tham khảo</p>
+          <div className="flex flex-col gap-1">
+            {data!.refs.map((r, i) => (
+              <a
+                key={i}
+                href={r}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="truncate text-sm text-[var(--accent)] hover:underline"
+              >
+                {r}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FieldBlock({ label, children }: { label: string; children: React.ReactNode }) {

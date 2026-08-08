@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Client, Job, Presence, Task, TaskStatus, User, Comment } from "./types";
+import type { BriefData, Client, Job, Presence, Task, TaskStatus, User, Comment } from "./types";
 import { mockClients, mockJobs, mockTasks, mockUsers } from "./mock-data";
 import { sendLocalNotification, sendPushToUsers } from "./pwa";
 import { getSupabaseBrowser, isSupabaseConfigured } from "./supabase/client";
@@ -54,6 +54,7 @@ interface NewTaskInput {
   weight?: number;
   depends_on_task_id?: string | null;
   brief?: string | null;
+  brief_data?: BriefData | null;
 }
 
 interface StoreValue {
@@ -93,6 +94,35 @@ const StoreContext = createContext<StoreValue | null>(null);
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+// Nếu DB chưa có cột nào đó (migration chưa chạy), lấy tên cột từ thông báo lỗi
+// để tự bỏ và thử lại — giúp app không sập trước khi chạy SQL.
+function missingColumn(msg: string): string | null {
+  const m =
+    msg.match(/column\s+(?:[\w"]+\.)?["']?(\w+)["']?\s+does not exist/i) ||
+    msg.match(/Could not find the '(\w+)' column/i);
+  return m ? m[1] : null;
+}
+
+// Insert/update tasks có khả năng tự bỏ cột thiếu và thử lại (tối đa 3 vòng).
+async function tasksWriteResilient<T extends Record<string, unknown>>(
+  run: (payload: T) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+  payload: T
+) {
+  const p: Record<string, unknown> = { ...payload };
+  for (let i = 0; i < 3; i++) {
+    const res = await run(p as T);
+    if (!res.error) return res;
+    const col = missingColumn(res.error.message);
+    if (col && col in p) {
+      console.warn(`[store] Cột tasks.${col} chưa tồn tại — bỏ qua & thử lại. Hãy chạy migration mới nhất.`);
+      delete p[col];
+      continue;
+    }
+    return res;
+  }
+  return run(p as T);
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -268,20 +298,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       deadline: input.deadline,
       depends_on_task_id: input.depends_on_task_id ?? null,
       brief: input.brief ?? null,
+      brief_data: input.brief_data ?? null,
       status: "ton",
       completed_at: null,
       approval_status: null,
     };
 
     if (useSupabase && supabase) {
-      let { data, error } = await supabase.from("tasks").insert(newTask).select().single();
-      // Tự lành: nếu DB chưa có cột brief → thử lại không kèm brief
-      if (error && /brief/i.test(error.message)) {
-        console.warn("[store] Cột tasks.brief chưa tồn tại — lưu task không kèm brief. Hãy chạy migration_fix_all.sql.");
-        const { brief: _drop, ...withoutBrief } = newTask;
-        void _drop;
-        ({ data, error } = await supabase.from("tasks").insert(withoutBrief).select().single());
-      }
+      const { data: raw, error } = await tasksWriteResilient(
+        (p) => supabase.from("tasks").insert(p).select().single(),
+        newTask as Record<string, unknown>
+      );
+      const data = raw as Task | null;
       if (error) {
         console.error("Error adding task:", error);
         alert(`Lỗi tạo task: ${error.message}`);
@@ -357,18 +385,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateTask = useCallback(async (taskId: string, patch: Partial<Omit<Task, "id" | "created_at">>) => {
     if (useSupabase && supabase) {
-      let { data, error } = await supabase.from("tasks").update(patch).eq("id", taskId).select().single();
-      // Tự lành: nếu DB chưa có cột brief → thử lại không kèm brief
-      if (error && /brief/i.test(error.message)) {
-        console.warn("[store] Cột tasks.brief chưa tồn tại — cập nhật không kèm brief. Hãy chạy migration_fix_all.sql.");
-        const { brief: _drop, ...rest } = patch;
-        void _drop;
-        if (Object.keys(rest).length > 0) {
-          ({ data, error } = await supabase.from("tasks").update(rest).eq("id", taskId).select().single());
-        } else {
-          error = null; // chỉ có mỗi brief → coi như bỏ qua
-        }
-      }
+      const { data: raw, error } = await tasksWriteResilient(
+        (p) => supabase.from("tasks").update(p).eq("id", taskId).select().single(),
+        patch as Record<string, unknown>
+      );
+      const data = raw as Task | null;
       if (error) {
         console.error("updateTask error:", error);
         alert(`Lỗi cập nhật task: ${error.message}`);

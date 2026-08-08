@@ -48,6 +48,15 @@ export interface Job {
   created_at: string;
 }
 
+// Brief có cấu trúc (M2). Mọi trường tuỳ chọn — giữ nguyên tắc "tạo task nhanh, brief điền sau".
+export interface BriefData {
+  objective?: string; // Mục tiêu
+  audience?: string; // Đối tượng
+  key_message?: string; // Thông điệp chính
+  format?: string; // Định dạng (vd: 3 post + 1 reel)
+  refs?: string[]; // Link tham khảo
+}
+
 export interface Task {
   id: string;
   client_id: string | null;
@@ -60,10 +69,19 @@ export interface Task {
   depends_on_task_id: string | null;
   status: TaskStatus;
   completed_at: string | null;
-  brief: string | null;
+  brief: string | null; // ghi chú/tài liệu tự do (+ handoff)
+  brief_data?: BriefData | null; // brief có cấu trúc (M2)
   approval_status: string | null;
   created_at: string;
 }
+
+// Nhãn hiển thị cho các trường brief có cấu trúc
+export const BRIEF_FIELDS: { key: keyof Omit<BriefData, "refs">; label: string; placeholder: string; multiline?: boolean }[] = [
+  { key: "objective", label: "Mục tiêu", placeholder: "Ví dụ: tăng nhận diện đợt mở bán" },
+  { key: "audience", label: "Đối tượng", placeholder: "Ví dụ: khách 30–45t quan tâm đầu tư" },
+  { key: "key_message", label: "Thông điệp chính", placeholder: "Ví dụ: an cư & sinh lời", multiline: true },
+  { key: "format", label: "Định dạng", placeholder: "Ví dụ: 3 post + 1 reel" },
+];
 
 export interface Comment {
   id: string;
