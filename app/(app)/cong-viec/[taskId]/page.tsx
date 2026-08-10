@@ -112,7 +112,7 @@ export default function TaskDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl animate-in">
+    <div className="mx-auto max-w-5xl animate-in">
       {/* Breadcrumb */}
       <div className="mb-6 flex items-center gap-2 text-sm text-[var(--text-faint)]">
         <Link href="/" className="hover:text-[var(--text)] transition-colors">Hôm nay</Link>
@@ -192,8 +192,11 @@ export default function TaskDetailPage() {
         )}
       </div>
 
-      {/* Grid chi tiết */}
-      <div className="mb-5 grid gap-4 md:grid-cols-2">
+      {/* Bố cục content-first: meta trái · nội dung phải */}
+      <div className="gap-6 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
+        {/* ===== CỘT TRÁI: thông tin task ===== */}
+        <div className="space-y-4">
+          <div className="grid gap-4">
 
         {/* Assignee */}
         <FieldBlock label="Người phụ trách">
@@ -303,9 +306,32 @@ export default function TaskDetailPage() {
             </p>
           )}
         </FieldBlock>
+          </div>{/* end lưới meta */}
+
+          {/* Hành động */}
+          {canEdit && (
+            <div className="flex gap-2.5">
+              {task.status === "ton" && (
+                <button onClick={() => updateTask(task.id, { status: "dang_lam" })} className="btn-accent flex-1 rounded-xl px-3 py-2.5 text-sm font-bold">🚀 Bắt đầu</button>
+              )}
+              {(task.status === "dang_lam" || task.status === "cho_duyet") && (
+                <button onClick={handleComplete} className="btn-accent flex-1 rounded-xl px-3 py-2.5 text-sm font-bold">✅ Hoàn thành</button>
+              )}
+              {task.status === "xong" && (
+                <button onClick={() => updateTask(task.id, { status: "dang_lam" })} className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text)]">↩ Mở lại</button>
+              )}
+              {task.status !== "xong" && (
+                <button onClick={save} className={cn("flex-1 rounded-xl border px-3 py-2.5 text-sm font-bold transition-all", saved ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400" : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--border-bright)]")}>{saved ? "✓ Đã lưu" : "💾 Lưu"}</button>
+              )}
+            </div>
+          )}
+        </div>{/* ===== end CỘT TRÁI ===== */}
+
+        {/* ===== CỘT PHẢI: brief · nội dung · trao đổi ===== */}
+        <div className="mt-6 space-y-5 lg:mt-0">
 
         {/* Brief có cấu trúc (M2) */}
-        <div className="card p-4 md:col-span-2">
+        <div className="card p-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-faint)]">
             Brief công việc
           </p>
@@ -371,48 +397,9 @@ export default function TaskDetailPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Action buttons */}
-      {canEdit && (
-        <div className="mb-5 flex gap-3">
-          {task.status === "ton" && (
-            <button onClick={() => updateTask(task.id, { status: "dang_lam" })} className="btn-accent rounded-xl px-4 py-3 font-bold flex-1">
-              🚀 Bắt đầu làm
-            </button>
-          )}
-          {(task.status === "dang_lam" || task.status === "cho_duyet") && (
-            <button onClick={handleComplete} className="btn-accent rounded-xl px-4 py-3 font-bold flex-1">
-              ✅ Đánh dấu hoàn thành
-            </button>
-          )}
-          {task.status === "xong" && (
-            <button
-              onClick={() => updateTask(task.id, { status: "dang_lam" })}
-              className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 font-bold text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border-bright)] transition-all"
-            >
-              ↩ Mở lại task
-            </button>
-          )}
-
-          {task.status !== "xong" && (
-            <button
-              onClick={save}
-              className={cn(
-                "flex-1 rounded-xl border px-6 py-3 text-sm font-bold transition-all",
-                saved
-                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
-                  : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--border-bright)]"
-              )}
-            >
-              {saved ? "✓ Đã lưu" : "💾 Lưu thay đổi"}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Nội dung / Bài duyệt (M3) */}
-      <ContentPanel task={task} />
+        {/* Nội dung / Bài duyệt (M3) */}
+        <ContentPanel task={task} />
 
       {/* Bình luận */}
       <div className="mt-8">
@@ -446,6 +433,8 @@ export default function TaskDetailPage() {
           onSubmit={(text, mentions) => addComment(task!.id, text, mentions)}
         />
       </div>
+        </div>{/* ===== end CỘT PHẢI ===== */}
+      </div>{/* ===== end bố cục 2 cột ===== */}
 
       {/* Meta footer */}
       <div className="mt-6 flex items-center justify-between text-xs text-[var(--text-faint)]">
