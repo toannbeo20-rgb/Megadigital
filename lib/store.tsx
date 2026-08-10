@@ -232,11 +232,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks" }, (payload) => {
         setTasks((prev) => prev.filter((t) => t.id !== payload.old.id));
       })
-      // Users realtime (presence)
+      // Users realtime (presence + quản lý tài khoản)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "users" }, (payload) => {
         setUsers((prev) =>
           prev.map((u) => (u.id === payload.new.id ? (payload.new as User) : u))
         );
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "users" }, (payload) => {
+        setUsers((prev) => (prev.find((u) => u.id === payload.new.id) ? prev : [...prev, payload.new as User]));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "users" }, (payload) => {
+        setUsers((prev) => prev.filter((u) => u.id !== payload.old.id));
       })
       // Clients realtime
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "clients" }, (payload) => {

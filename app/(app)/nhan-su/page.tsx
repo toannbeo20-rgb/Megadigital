@@ -1,10 +1,11 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { PRESENCE_META } from "@/lib/types";
+import { PRESENCE_META, type User } from "@/lib/types";
 import { PageHeader, Avatar, Badge } from "@/components/ui";
 import PresenceEditor from "@/components/PresenceEditor";
 import AddUserModal from "@/components/AddUserModal";
+import ManageUserModal from "@/components/ManageUserModal";
 import { useState } from "react";
 import { workloadOf, loadLevel, timeAgo, cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ export default function PeoplePage() {
   const { users, tasks, currentUser } = useStore();
   const isManager = currentUser.permission === "manager";
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [manageUser, setManageUser] = useState<User | null>(null);
 
   return (
     <div className="animate-in">
@@ -40,10 +42,18 @@ export default function PeoplePage() {
         }
       />
       
-      <AddUserModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <AddUserModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
       />
+
+      {manageUser && (
+        <ManageUserModal
+          user={manageUser}
+          isSelf={manageUser.id === currentUser.id}
+          onClose={() => setManageUser(null)}
+        />
+      )}
 
       <div className="mb-6">
         <PresenceEditor />
@@ -124,8 +134,18 @@ export default function PeoplePage() {
                   </div>
                 </div>
 
-                {/* Load badge */}
-                <Badge className={lvlTone}>{lvl.label}</Badge>
+                {/* Load badge + nút quản lý (manager) */}
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <Badge className={lvlTone}>{lvl.label}</Badge>
+                  {isManager && (
+                    <button
+                      onClick={() => setManageUser(u)}
+                      className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-faint)] hover:border-[var(--border-bright)] hover:text-[var(--text)] transition-colors"
+                    >
+                      ⚙ Quản lý
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Workload bar */}
