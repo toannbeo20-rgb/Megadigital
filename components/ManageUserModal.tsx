@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { updateUserAction, resetPasswordAction, deleteUserAction, getUserEmailAction } from "@/app/actions/user";
 import type { User } from "@/lib/types";
 import { Avatar } from "./ui";
@@ -27,6 +28,9 @@ export default function ManageUserModal({
   const [newPassword, setNewPassword] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [email, setEmail] = useState<string>("");
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Lấy email đăng nhập để hiển thị
   useEffect(() => {
@@ -75,7 +79,9 @@ export default function ManageUserModal({
     });
   }
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={!isPending ? onClose : undefined} />
 
@@ -216,6 +222,7 @@ export default function ManageUserModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

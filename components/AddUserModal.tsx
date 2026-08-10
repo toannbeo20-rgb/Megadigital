@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { createUserAction } from "@/app/actions/user";
 import { cn } from "@/lib/utils";
 
@@ -17,10 +18,12 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedPermission, setSelectedPermission] = useState<"staff" | "manager">("staff");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const currentRoles = selectedPermission === "manager" ? MANAGER_ROLES : STAFF_ROLES;
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,7 +40,7 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
     });
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
@@ -162,6 +165,7 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
