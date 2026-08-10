@@ -38,24 +38,22 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={!isPending ? onClose : undefined}
       />
 
-      {/* Wrapper cuộn — luôn thấy đủ modal dù màn hình thấp */}
-      <div className="relative flex min-h-full items-center justify-center p-4">
-        {/* Modal Box */}
-        <div className="relative w-full max-w-md scale-100 animate-in fade-in zoom-in-95 rounded-2xl bg-[var(--surface)] p-6 shadow-2xl ring-1 ring-[var(--border)]">
-        <h2 className="mb-1 text-2xl font-black text-[var(--text)]">Thêm nhân sự mới</h2>
-        <p className="mb-6 text-sm text-[var(--text-muted)]">
+      {/* Modal Box */}
+      <div className="relative w-full max-w-lg scale-100 animate-in fade-in zoom-in-95 rounded-2xl bg-[var(--surface)] p-6 shadow-2xl ring-1 ring-[var(--border)]">
+        <h2 className="text-xl font-black text-[var(--text)]">Thêm nhân sự mới</h2>
+        <p className="mb-5 mt-1 text-sm text-[var(--text-muted)]">
           Tạo tài khoản đăng nhập cho thành viên mới của team.
         </p>
 
         {errorMsg && (
-          <div className="mb-4 rounded-md bg-red-500/15 p-3 text-sm text-red-500 border border-red-500/20">
+          <div className="mb-4 rounded-lg bg-red-500/15 p-3 text-sm text-red-500 border border-red-500/20">
             {errorMsg}
           </div>
         )}
@@ -85,22 +83,21 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-[var(--text)]">Mật khẩu tạm</label>
-            <input 
-              name="password"
-              type="text" 
-              required
-              placeholder="Nên đặt mk dễ nhớ, ví dụ: 123456"
-              className="w-full rounded-lg bg-[var(--surface-2)] px-4 py-2.5 text-[var(--text)] placeholder:text-[var(--text-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-              disabled={isPending}
-            />
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="mb-1.5 block text-sm font-semibold text-[var(--text)]">Mật khẩu tạm</label>
+              <input
+                name="password"
+                type="text"
+                required
+                placeholder="vd: 123456"
+                className="w-full rounded-lg bg-[var(--surface-2)] px-4 py-2.5 text-[var(--text)] placeholder:text-[var(--text-faint)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                disabled={isPending}
+              />
+            </div>
+            <div>
               <label className="mb-1.5 block text-sm font-semibold text-[var(--text)]">Phân quyền</label>
-              <select 
+              <select
                 name="permission"
                 value={selectedPermission}
                 onChange={(e) => {
@@ -110,37 +107,37 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
                 className="w-full rounded-lg bg-[var(--surface-2)] px-4 py-2.5 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 disabled={isPending}
               >
-                <option value="staff">Staff (Chỉ xem việc của mình)</option>
-                <option value="manager">Manager (Quản lý toàn bộ)</option>
+                <option value="staff">Staff — chỉ việc của mình</option>
+                <option value="manager">Manager — quản lý toàn bộ</option>
               </select>
             </div>
-            
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[var(--text)]">Vai trò (Roles)</label>
-              <div className="flex flex-wrap gap-2">
-                {currentRoles.map(role => (
-                  <button
-                    key={role}
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => {
-                      setSelectedRoles(prev => 
-                        prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
-                      )
-                    }}
-                    className={cn(
-                      "rounded-lg border px-3 py-1.5 text-xs font-semibold capitalize transition-all",
-                      selectedRoles.includes(role)
-                        ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-sm"
-                        : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-faint)] hover:border-[var(--border-bright)] hover:text-[var(--text)]"
-                    )}
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
-              <input type="hidden" name="roles" value={selectedRoles.join(", ")} />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-[var(--text)]">Vai trò (Roles)</label>
+            <div className="flex flex-wrap gap-2">
+              {currentRoles.map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    setSelectedRoles((prev) =>
+                      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+                    );
+                  }}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-semibold capitalize transition-all",
+                    selectedRoles.includes(role)
+                      ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-sm"
+                      : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-faint)] hover:border-[var(--border-bright)] hover:text-[var(--text)]"
+                  )}
+                >
+                  {role}
+                </button>
+              ))}
             </div>
+            <input type="hidden" name="roles" value={selectedRoles.join(", ")} />
           </div>
 
           <div className="mt-8 flex items-center justify-end gap-3 pt-2">
@@ -164,7 +161,6 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
             </button>
           </div>
         </form>
-        </div>
       </div>
     </div>
   );
