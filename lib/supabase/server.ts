@@ -6,8 +6,8 @@ import { cookies } from "next/headers";
 export async function getSupabaseServer() {
   const cookieStore = await cookies();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
     {
       cookies: {
         getAll() {
@@ -30,12 +30,13 @@ export async function getSupabaseServer() {
 // Supabase client dành riêng cho thao tác Admin (bypass RLS, tạo auth user, v.v.)
 // CHỈ GỌI Ở SERVER ACTIONS HOẶC ROUTE HANDLERS
 export function getSupabaseAdmin() {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!serviceKey) {
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY in .env.local");
   }
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
+    serviceKey,
     {
       cookies: {
         getAll() { return []; },

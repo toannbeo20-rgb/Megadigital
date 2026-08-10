@@ -38,15 +38,15 @@ export default function AddUserModal({ isOpen, onClose }: AddUserModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-4">
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-        onClick={!isPending ? onClose : undefined} 
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        onClick={!isPending ? onClose : undefined}
       />
-      
+
       {/* Modal Box */}
-      <div className="relative w-full max-w-md scale-100 animate-in fade-in zoom-in-95 rounded-2xl bg-[var(--surface)] p-6 shadow-2xl ring-1 ring-[var(--border)]">
+      <div className="relative my-auto max-h-[90vh] w-full max-w-md overflow-y-auto scale-100 animate-in fade-in zoom-in-95 rounded-2xl bg-[var(--surface)] p-6 shadow-2xl ring-1 ring-[var(--border)]">
         <h2 className="mb-1 text-2xl font-black text-[var(--text)]">Thêm nhân sự mới</h2>
         <p className="mb-6 text-sm text-[var(--text-muted)]">
           Tạo tài khoản đăng nhập cho thành viên mới của team.
