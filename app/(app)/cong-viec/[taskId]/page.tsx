@@ -14,7 +14,7 @@ import {
 } from "@/lib/types";
 import { Avatar, Badge } from "@/components/ui";
 import CommentComposer from "@/components/CommentComposer";
-import ContentPanel from "@/components/ContentPanel";
+import ContentEditor from "@/components/ContentEditor";
 import { deadlineLabel, cn } from "@/lib/utils";
 
 export default function TaskDetailPage() {
@@ -40,6 +40,8 @@ export default function TaskDetailPage() {
   const [editBriefData, setEditBriefData] = useState<BriefData>({});
   const [editRefs, setEditRefs] = useState<string>(""); // mỗi dòng 1 link
   const [saved, setSaved] = useState(false);
+  const [briefOpen, setBriefOpen] = useState(false); // Brief thu gọn để content nổi lên
+  const [notesOpen, setNotesOpen] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -314,12 +316,25 @@ export default function TaskDetailPage() {
         {/* ===== CỘT PHẢI: brief · nội dung · trao đổi ===== */}
         <div className="mt-6 space-y-5 lg:mt-0">
 
-        {/* Brief có cấu trúc (M2) */}
+        {/* Brief có cấu trúc (M2) — thu gọn được */}
         <div className="card p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-faint)]">
-            Brief công việc
-          </p>
+          <button
+            onClick={() => setBriefOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-[var(--text-faint)]">Brief công việc</span>
+            <span className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-faint)]">
+              {!briefOpen && (
+                <span className="truncate text-[var(--text-muted)]">
+                  {task.brief_data?.objective || task.brief_data?.key_message || "Chưa có brief — bấm để thêm"}
+                </span>
+              )}
+              <span className="shrink-0">{briefOpen ? "▲" : "▼"}</span>
+            </span>
+          </button>
 
+          {briefOpen && (
+          <div className="mt-3">
           {canEdit ? (
             <div className="grid gap-3 sm:grid-cols-2">
               {BRIEF_FIELDS.map((f) =>
@@ -360,13 +375,28 @@ export default function TaskDetailPage() {
           ) : (
             <BriefView data={task.brief_data} />
           )}
+          </div>
+          )}
         </div>
 
-        {/* Ghi chú / tài liệu tự do (+ bàn giao) */}
-        <div className="card p-4 md:col-span-2">
-          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-[var(--text-faint)]">
-            Ghi chú / tài liệu
-          </p>
+        {/* Ghi chú / tài liệu tự do (thu gọn) */}
+        <div className="card p-4">
+          <button
+            onClick={() => setNotesOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-[var(--text-faint)]">Ghi chú / tài liệu</span>
+            <span className="flex min-w-0 items-center gap-2 text-xs text-[var(--text-faint)]">
+              {!notesOpen && (
+                <span className="truncate text-[var(--text-muted)]">
+                  {task.brief ? task.brief.split("\n")[0] : "Chưa có ghi chú"}
+                </span>
+              )}
+              <span className="shrink-0">{notesOpen ? "▲" : "▼"}</span>
+            </span>
+          </button>
+          {notesOpen && (
+          <div className="mt-3">
           {canEdit ? (
             <textarea
               value={editBrief}
@@ -380,10 +410,12 @@ export default function TaskDetailPage() {
               {task.brief || <span className="text-[var(--text-faint)] italic">Không có nội dung</span>}
             </div>
           )}
+          </div>
+          )}
         </div>
 
-        {/* Nội dung / Bài duyệt (M3) */}
-        <ContentPanel task={task} />
+        {/* Nội dung — editor chính (Bước 3) */}
+        <ContentEditor task={task} />
 
       {/* Bình luận */}
       <div className="mt-8">
