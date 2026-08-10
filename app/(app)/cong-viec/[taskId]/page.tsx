@@ -122,73 +122,57 @@ export default function TaskDetailPage() {
         <span className="text-[var(--text-muted)] truncate">{task.title}</span>
       </div>
 
-      {/* Header card */}
-      <div className="card-glow mb-5 rounded-[var(--radius)] p-5">
-        {/* Client */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      {/* Header gọn — nhường chỗ cho brief + nội dung */}
+      <div className="card mb-4 rounded-[var(--radius)] px-4 py-3">
+        {/* Hàng meta: khách · trạng thái · deadline · giục */}
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
           {client && (
-            <Link
-              href={`/khach/${client.id}`}
-              className="badge-accent hover:opacity-80 transition-opacity"
-            >
+            <Link href={`/khach/${client.id}`} className="badge-accent hover:opacity-80 transition-opacity">
               {client.name}
             </Link>
           )}
-        </div>
-
-        {/* Title editable */}
-        {canEdit ? (
-          <textarea
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            rows={2}
-            className="w-full resize-none bg-transparent text-xl font-bold text-[var(--text)] placeholder-[var(--text-faint)] outline-none focus:ring-0"
-            placeholder="Tên task..."
-          />
-        ) : (
-          <h1 className="text-xl font-bold text-[var(--text)]">{task.title}</h1>
-        )}
-
-        {/* Status & Deadline badge */}
-        <div className="mt-2 flex items-center gap-3">
           <Badge className={
             task.status === "dang_lam" ? "bg-[var(--accent-soft)] text-[var(--accent)] border-none" :
             task.status === "cho_duyet" ? "bg-amber-500/15 text-amber-500 border-none" :
             task.status === "xong" ? "bg-emerald-500/15 text-emerald-500 border-none" :
             "bg-[var(--surface-2)] text-[var(--text-muted)] border-none"
           }>
-            {task.status === "ton" ? "Chưa làm" : 
-             task.status === "dang_lam" ? "Đang làm" : 
+            {task.status === "ton" ? "Chưa làm" :
+             task.status === "dang_lam" ? "Đang làm" :
              task.status === "cho_duyet" ? "Chờ duyệt" : "Đã xong"}
           </Badge>
-          
-          <div className="h-4 w-px bg-[var(--border)]"></div>
-          
-          <span
-            className={cn(
-              "text-sm font-semibold",
-              dl.tone === "danger" && "text-[var(--danger)]",
-              dl.tone === "warn" && "text-[var(--warn)]",
-              dl.tone === "muted" && "text-[var(--text-faint)]"
-            )}
-          >
+          <span className={cn(
+            "text-xs font-semibold",
+            dl.tone === "danger" && "text-[var(--danger)]",
+            dl.tone === "warn" && "text-[var(--warn)]",
+            dl.tone === "muted" && "text-[var(--text-faint)]"
+          )}>
             {dl.text}
           </span>
           {task.completed_at && (
-            <span className="text-xs text-emerald-400">
-              · Xong {new Date(task.completed_at).toLocaleDateString("vi-VN")}
-            </span>
+            <span className="text-xs text-emerald-400">· Xong {new Date(task.completed_at).toLocaleDateString("vi-VN")}</span>
+          )}
+          {isManager && task.status !== "xong" && (
+            <button
+              onClick={pingAssignee}
+              className="ml-auto flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-500 hover:bg-amber-500/20 transition-colors"
+            >
+              🔔 Giục
+            </button>
           )}
         </div>
-        
-        {/* Nút Ping */}
-        {isManager && task.status !== "xong" && (
-          <button
-            onClick={pingAssignee}
-            className="mt-3 flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-500 hover:bg-amber-500/20 transition-colors"
-          >
-            🔔 Giục tiến độ
-          </button>
+
+        {/* Tiêu đề (gọn 1 dòng) */}
+        {canEdit ? (
+          <textarea
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            rows={1}
+            className="w-full resize-none bg-transparent text-lg font-bold leading-snug text-[var(--text)] placeholder-[var(--text-faint)] outline-none focus:ring-0"
+            placeholder="Tên task..."
+          />
+        ) : (
+          <h1 className="text-lg font-bold leading-snug text-[var(--text)]">{task.title}</h1>
         )}
       </div>
 
