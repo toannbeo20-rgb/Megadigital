@@ -597,7 +597,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         prev.map((c) => (c.id === contentId ? { ...c, ...patch, ...(nextVersion ? { version: nextVersion } : {}), updated_at: new Date().toISOString() } : c))
       );
     }
-  }, [useSupabase, supabase, contents]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Đồng bộ cột board của task theo trạng thái duyệt của nội dung (1 task = 1 content)
+    if (patch.approval_status && current) {
+      const map: Record<string, TaskStatus> = {
+        draft: "dang_lam",
+        khach_sua: "dang_lam",
+        noi_bo: "cho_duyet",
+        gui_khach: "cho_duyet",
+        khach_ok: "xong",
+      };
+      const nextTaskStatus = map[patch.approval_status];
+      const task = tasks.find((t) => t.id === current.task_id);
+      if (nextTaskStatus && task && task.status !== nextTaskStatus) {
+        moveTask(current.task_id, nextTaskStatus);
+      }
+    }
+  }, [useSupabase, supabase, contents, tasks, moveTask]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setPresence = useCallback(async (userId: string, presence: Presence, note?: string | null) => {
     const patch = { presence, status_note: note ?? null, last_active_at: new Date().toISOString() };
