@@ -62,7 +62,7 @@ export default function PeoplePage() {
       <div className="stagger grid gap-3 md:grid-cols-2">
         {users.map((u) => {
           const load = workloadOf(tasks, u.id);
-          const lvl = loadLevel(load.weight);
+          const lvl = loadLevel(load.openCount);
           const meta = PRESENCE_META[u.presence];
           // KPI: staff chỉ thấy KPI của mình (mục 3.2)
           const showKpi = isManager || u.id === currentUser.id;
@@ -74,8 +74,8 @@ export default function PeoplePage() {
             danger: "bg-red-500/15 text-red-400 border border-red-500/20",
           }[lvl.tone];
 
-          // Progress bar width: max tải = 10 (heuristic)
-          const barPct = Math.min((load.weight / 10) * 100, 100);
+          // Progress bar width: max tải ~ 8 task mở (heuristic)
+          const barPct = Math.min((load.openCount / 8) * 100, 100);
 
           return (
             <div
@@ -149,7 +149,7 @@ export default function PeoplePage() {
               </div>
 
               {/* Workload bar */}
-              {showKpi && load.weight > 0 && (
+              {showKpi && load.openCount > 0 && (
                 <div className="mt-3">
                   <div className="h-1 w-full rounded-full bg-[var(--surface-3)]">
                     <div
@@ -168,7 +168,7 @@ export default function PeoplePage() {
               {showKpi && (
                 <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-3">
                   <Stat label="Task mở" value={load.openCount} />
-                  <Stat label="Độ nặng" value={load.weight} />
+                  <Stat label="Ưu tiên cao" value={load.highPriority} />
                   <Stat label="Khách đang gánh" value={load.clientCount} />
                 </div>
               )}

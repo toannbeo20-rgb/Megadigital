@@ -14,6 +14,15 @@ export type JobStatus = "pitch" | "dang_chay" | "cho_duyet" | "done";
 export type TaskStatus = "ton" | "dang_lam" | "cho_duyet" | "xong";
 export type TaskKind = "content" | "design" | "media" | "account" | null;
 
+// Mức độ ưu tiên (thay cho "độ nặng" cũ)
+export type Priority = "thap" | "trung_binh" | "cao";
+export const PRIORITY_META: Record<Priority, { label: string; className: string; dot: string }> = {
+  thap:       { label: "Thấp",       className: "bg-slate-500/15 text-slate-400 border-slate-500/25",  dot: "bg-slate-400" },
+  trung_binh: { label: "Trung bình", className: "bg-amber-500/15 text-amber-400 border-amber-500/25",  dot: "bg-amber-400" },
+  cao:        { label: "Cao",        className: "bg-red-500/15 text-red-400 border-red-500/25",        dot: "bg-red-400" },
+};
+export const PRIORITY_ORDER: Record<Priority, number> = { cao: 0, trung_binh: 1, thap: 2 };
+
 export interface User {
   id: string;
   name: string;
@@ -64,7 +73,7 @@ export interface Task {
   title: string;
   assignee_id: string;
   kind: TaskKind;
-  weight: number; // 1-3
+  priority: Priority | null; // mức độ ưu tiên (thay cho weight)
   deadline: string; // date
   depends_on_task_id: string | null;
   status: TaskStatus;
@@ -108,18 +117,20 @@ export interface Content {
   updated_at: string;
 }
 
-// Thứ tự vòng duyệt (khach_sua là nhánh quay lại)
-export const APPROVAL_FLOW: ApprovalStatus[] = ["draft", "noi_bo", "gui_khach", "khach_ok"];
+// Vòng duyệt NỘI BỘ (3 trạng thái). Tái dùng giá trị DB cũ để khỏi migrate:
+//   draft = Nháp · noi_bo = Chờ duyệt · khach_ok = Đã duyệt · khach_sua = Cần sửa (nhánh)
+// (gui_khach không dùng nữa — để lại meta cho dữ liệu cũ nếu có)
+export const APPROVAL_FLOW: ApprovalStatus[] = ["draft", "noi_bo", "khach_ok"];
 
 export const APPROVAL_META: Record<
   ApprovalStatus,
   { label: string; short: string; className: string; dot: string }
 > = {
-  draft:     { label: "Nháp",        short: "Nháp",      className: "bg-slate-500/15 text-slate-400 border-slate-500/25",   dot: "bg-slate-400" },
-  noi_bo:    { label: "Nội bộ duyệt", short: "Nội bộ",   className: "bg-blue-500/15 text-blue-400 border-blue-500/25",       dot: "bg-blue-400" },
+  draft:     { label: "Nháp",       short: "Nháp",       className: "bg-slate-500/15 text-slate-400 border-slate-500/25",     dot: "bg-slate-400" },
+  noi_bo:    { label: "Chờ duyệt",  short: "Chờ duyệt",  className: "bg-blue-500/15 text-blue-400 border-blue-500/25",        dot: "bg-blue-400" },
+  khach_sua: { label: "Cần sửa",    short: "Cần sửa",    className: "bg-amber-500/15 text-amber-400 border-amber-500/25",     dot: "bg-amber-400" },
+  khach_ok:  { label: "Đã duyệt",   short: "Đã duyệt",   className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25", dot: "bg-emerald-400" },
   gui_khach: { label: "Đã gửi khách", short: "Gửi khách", className: "bg-violet-500/15 text-violet-400 border-violet-500/25", dot: "bg-violet-400" },
-  khach_sua: { label: "Khách yêu cầu sửa", short: "Khách sửa", className: "bg-amber-500/15 text-amber-400 border-amber-500/25", dot: "bg-amber-400" },
-  khach_ok:  { label: "Khách duyệt ✓", short: "Khách OK", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25", dot: "bg-emerald-400" },
 };
 
 // ---- Hằng số hiển thị ----

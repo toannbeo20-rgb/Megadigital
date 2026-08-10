@@ -22,21 +22,19 @@ function displayName(u?: User) {
 function nextActions(s: ApprovalStatus): { to: ApprovalStatus; label: string; kind: "primary" | "ok" | "warn" | "muted" }[] {
   switch (s) {
     case "draft":
-      return [{ to: "noi_bo", label: "Trình duyệt nội bộ", kind: "primary" }];
+      return [{ to: "noi_bo", label: "Trình duyệt", kind: "primary" }];
     case "noi_bo":
       return [
-        { to: "gui_khach", label: "Gửi khách", kind: "primary" },
-        { to: "draft", label: "Trả về nháp", kind: "muted" },
-      ];
-    case "gui_khach":
-      return [
-        { to: "khach_ok", label: "Khách duyệt ✓", kind: "ok" },
-        { to: "khach_sua", label: "Khách yêu cầu sửa", kind: "warn" },
+        { to: "khach_ok", label: "Duyệt ✓", kind: "ok" },
+        { to: "khach_sua", label: "Yêu cầu sửa", kind: "warn" },
+        { to: "draft", label: "Về nháp", kind: "muted" },
       ];
     case "khach_sua":
-      return [{ to: "gui_khach", label: "Đã sửa, gửi lại khách", kind: "primary" }];
+      return [{ to: "noi_bo", label: "Đã sửa, trình lại", kind: "primary" }];
     case "khach_ok":
-      return [{ to: "gui_khach", label: "Mở lại", kind: "muted" }];
+      return [{ to: "noi_bo", label: "Mở lại", kind: "muted" }];
+    case "gui_khach": // dữ liệu cũ (nếu có) → đưa về luồng nội bộ
+      return [{ to: "noi_bo", label: "Về chờ duyệt", kind: "primary" }];
   }
 }
 

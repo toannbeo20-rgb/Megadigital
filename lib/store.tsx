@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { BriefData, Client, Content, Job, Presence, Task, TaskStatus, User, Comment } from "./types";
+import type { BriefData, Client, Content, Job, Presence, Priority, Task, TaskStatus, User, Comment } from "./types";
 import { mockClients, mockJobs, mockTasks, mockUsers } from "./mock-data";
 import { sendLocalNotification, sendPushToUsers } from "./pwa";
 import { getSupabaseBrowser, isSupabaseConfigured } from "./supabase/client";
@@ -51,7 +51,7 @@ interface NewTaskInput {
   job_id?: string | null;
   deadline: string;
   kind?: Task["kind"];
-  weight?: number;
+  priority?: Priority | null;
   depends_on_task_id?: string | null;
   brief?: string | null;
   brief_data?: BriefData | null;
@@ -321,7 +321,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       title: input.title,
       assignee_id: input.assignee_id,
       kind: input.kind ?? null,
-      weight: input.weight ?? 1,
+      priority: input.priority ?? "trung_binh",
       deadline: input.deadline,
       depends_on_task_id: input.depends_on_task_id ?? null,
       brief: input.brief ?? null,

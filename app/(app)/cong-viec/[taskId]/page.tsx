@@ -6,31 +6,16 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import {
   KIND_META,
-  TASK_STATUS_META,
-  JOB_STATUS_META,
   BRIEF_FIELDS,
+  PRIORITY_META,
   type BriefData,
+  type Priority,
   type TaskKind,
-  type TaskStatus,
 } from "@/lib/types";
 import { Avatar, Badge } from "@/components/ui";
 import CommentComposer from "@/components/CommentComposer";
 import ContentPanel from "@/components/ContentPanel";
 import { deadlineLabel, cn } from "@/lib/utils";
-
-const WEIGHT_LABELS: Record<number, { label: string; desc: string; color: string }> = {
-  1: { label: "Nhẹ", desc: "1–2h", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  2: { label: "Vừa", desc: "2–4h", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  3: { label: "Nặng", desc: "4h+", color: "bg-red-500/15 text-red-400 border-red-500/30" },
-};
-
-const STATUS_FLOW: TaskStatus[] = ["ton", "dang_lam", "cho_duyet", "xong"];
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  ton: "bg-[var(--surface-3)] text-[var(--text-muted)] border-[var(--border)]",
-  dang_lam: "bg-[rgba(170,237,42,0.12)] text-[var(--accent)] border-[rgba(170,237,42,0.3)]",
-  cho_duyet: "bg-amber-500/15 text-amber-500 border-amber-500/30",
-  xong: "bg-emerald-500/12 text-emerald-400 border-emerald-500/30",
-};
 
 export default function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -49,15 +34,12 @@ export default function TaskDetailPage() {
   const [editAssignee, setEditAssignee] = useState("");
   const [editDeadline, setEditDeadline] = useState("");
   const [editKind, setEditKind] = useState<TaskKind>(null);
-  const [editWeight, setEditWeight] = useState(1);
+  const [editPriority, setEditPriority] = useState<Priority>("trung_binh");
   const [editDepends, setEditDepends] = useState<string | null>(null);
   const [editBrief, setEditBrief] = useState<string>("");
   const [editBriefData, setEditBriefData] = useState<BriefData>({});
   const [editRefs, setEditRefs] = useState<string>(""); // mỗi dòng 1 link
   const [saved, setSaved] = useState(false);
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [submitLink, setSubmitLink] = useState("");
-  const [submitNote, setSubmitNote] = useState("");
 
   useEffect(() => {
     if (task) {
@@ -65,7 +47,7 @@ export default function TaskDetailPage() {
       setEditAssignee(task.assignee_id);
       setEditDeadline(task.deadline);
       setEditKind(task.kind);
-      setEditWeight(task.weight);
+      setEditPriority(task.priority ?? "trung_binh");
       setEditDepends(task.depends_on_task_id);
       setEditBrief(task.brief ?? "");
       setEditBriefData(task.brief_data ?? {});
@@ -106,7 +88,7 @@ export default function TaskDetailPage() {
       assignee_id: editAssignee,
       deadline: editDeadline,
       kind: editKind,
-      weight: editWeight,
+      priority: editPriority,
       depends_on_task_id: editDepends,
       brief: editBrief.trim() ? editBrief.trim() : null,
       brief_data: hasBrief ? bd : null,
@@ -115,25 +97,9 @@ export default function TaskDetailPage() {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  async function handleApprove() {
+  // Đánh dấu hoàn thành → handoff tự động báo "tới lượt bạn" cho task phụ thuộc (xử lý trong store.moveTask)
+  async function handleComplete() {
     await updateTask(task!.id, { status: "xong" });
-    const dependent = tasks.find((t) => t.depends_on_task_id === task!.id);
-    if (dependent) {
-      const submissionComment = comments.filter((c) => c.task_id === task!.id && c.content.includes("[NỘP BÀI]")).pop();
-      if (submissionComment) {
-        const appendedBrief = (dependent.brief ? dependent.brief + "\n\n" : "") + "---\nTÀI LIỆU TỪ TASK TRƯỚC:\n" + submissionComment.content.replace("[NỘP BÀI]\n", "");
-        await updateTask(dependent.id, { brief: appendedBrief });
-      }
-    }
-    router.push("/cong-viec");
-  }
-
-  async function handleSubmitReview(e: React.FormEvent) {
-    e.preventDefault();
-    const content = `[NỘP BÀI]\n- Link đính kèm: ${submitLink}\n- Lời nhắn: ${submitNote}`;
-    await addComment(task!.id, content);
-    await updateTask(task!.id, { status: "cho_duyet" });
-    setShowSubmitModal(false);
     router.push("/cong-viec");
   }
 
@@ -292,23 +258,22 @@ export default function TaskDetailPage() {
           </div>
         </FieldBlock>
 
-        {/* Weight */}
-        <FieldBlock label="Độ nặng">
+        {/* Priority */}
+        <FieldBlock label="Mức độ ưu tiên">
           <div className="flex gap-2">
-            {[1, 2, 3].map((w) => (
+            {(Object.keys(PRIORITY_META) as Priority[]).map((p) => (
               <button
-                key={w}
-                onClick={() => canEdit && setEditWeight(w)}
+                key={p}
+                onClick={() => canEdit && setEditPriority(p)}
                 className={cn(
                   "flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all",
-                  editWeight === w
-                    ? WEIGHT_LABELS[w].color + " border"
+                  editPriority === p
+                    ? PRIORITY_META[p].className + " border"
                     : "bg-transparent text-[var(--text-faint)] border-[var(--border)] hover:border-[var(--border-bright)]",
                   !canEdit && "opacity-50 cursor-not-allowed"
                 )}
               >
-                {WEIGHT_LABELS[w].label}
-                <span className="block text-[10px] font-normal opacity-70">{WEIGHT_LABELS[w].desc}</span>
+                {PRIORITY_META[p].label}
               </button>
             ))}
           </div>
@@ -408,43 +373,36 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      {/* Action buttons - ngang nhau */}
+      {/* Action buttons */}
       {canEdit && (
         <div className="mb-5 flex gap-3">
-          {/* Nút trạng thái */}
           {task.status === "ton" && (
             <button onClick={() => updateTask(task.id, { status: "dang_lam" })} className="btn-accent rounded-xl px-4 py-3 font-bold flex-1">
               🚀 Bắt đầu làm
             </button>
           )}
-          {task.status === "dang_lam" && (
-            <button onClick={() => setShowSubmitModal(true)} className="rounded-xl px-4 py-3 font-bold flex-1 bg-amber-500 hover:bg-amber-600 text-white shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]">
-              📤 Nộp bài & Chuyển giao
+          {(task.status === "dang_lam" || task.status === "cho_duyet") && (
+            <button onClick={handleComplete} className="btn-accent rounded-xl px-4 py-3 font-bold flex-1">
+              ✅ Đánh dấu hoàn thành
             </button>
           )}
-          {task.status === "cho_duyet" && isManager && (
-            <>
-              <button onClick={() => updateTask(task.id, { status: "dang_lam" })} className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 font-bold text-red-500 hover:bg-red-500/20 flex-1 transition-all">
-                ↩ Yêu cầu sửa lại
-              </button>
-              <button onClick={() => handleApprove()} className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 font-bold text-emerald-500 hover:bg-emerald-500/20 flex-1 transition-all">
-                ✓ Duyệt & Đóng Task
-              </button>
-            </>
-          )}
           {task.status === "xong" && (
-            <div className="flex-1 text-center py-3 text-emerald-500 font-bold bg-emerald-500/10 rounded-xl">
-              ✓ Đã hoàn thành
-            </div>
+            <button
+              onClick={() => updateTask(task.id, { status: "dang_lam" })}
+              className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 font-bold text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border-bright)] transition-all"
+            >
+              ↩ Mở lại task
+            </button>
           )}
 
-          {/* Nút Lưu - luôn hiện ngang hàng */}
           {task.status !== "xong" && (
             <button
               onClick={save}
               className={cn(
-                "btn-accent rounded-xl px-6 py-3 text-sm font-bold transition-all flex-1",
-                saved && "bg-emerald-500 shadow-none"
+                "flex-1 rounded-xl border px-6 py-3 text-sm font-bold transition-all",
+                saved
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
+                  : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--border-bright)]"
               )}
             >
               {saved ? "✓ Đã lưu" : "💾 Lưu thay đổi"}
@@ -496,47 +454,6 @@ export default function TaskDetailPage() {
           ← Quay lại bảng
         </Link>
       </div>
-
-      {/* Modal Nộp bài */}
-      {showSubmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowSubmitModal(false)}>
-          <div className="animate-bounce-in w-full max-w-md rounded-2xl bg-[var(--surface)] p-5 shadow-[var(--shadow-lg)]" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-bold text-[var(--text)]">Nộp bài & Chuyển giao</h2>
-            <form onSubmit={handleSubmitReview}>
-              <div className="mb-4">
-                <label className="mb-1 block text-sm font-semibold text-[var(--text-muted)]">Link đính kèm (Drive/Figma/Doc)</label>
-                <input
-                  type="url"
-                  required
-                  value={submitLink}
-                  onChange={(e) => setSubmitLink(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="mb-5">
-                <label className="mb-1 block text-sm font-semibold text-[var(--text-muted)]">Lời nhắn / Dặn dò cho công đoạn sau</label>
-                <textarea
-                  required
-                  value={submitNote}
-                  onChange={(e) => setSubmitNote(e.target.value)}
-                  rows={3}
-                  className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-                  placeholder="Note chú ý cắt góc trái video nhé..."
-                />
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setShowSubmitModal(false)} className="flex-1 rounded-xl bg-[var(--surface-2)] py-2.5 font-bold text-[var(--text-muted)] hover:text-[var(--text)]">
-                  Hủy
-                </button>
-                <button type="submit" className="flex-1 rounded-xl bg-amber-500 py-2.5 font-bold text-white shadow-md hover:bg-amber-600">
-                  Xác nhận Nộp
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

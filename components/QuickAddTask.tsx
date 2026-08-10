@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import type { TaskKind } from "@/lib/types";
+import type { TaskKind, Priority } from "@/lib/types";
+import { PRIORITY_META } from "@/lib/types";
 import { IconClose } from "./icons";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,7 @@ export default function QuickAddTask({
   const [deadline, setDeadline] = useState(new Date().toISOString().slice(0, 10));
   const [showMore, setShowMore] = useState(false);
   const [kind, setKind] = useState<TaskKind>(null);
-  const [weight, setWeight] = useState(1);
+  const [priority, setPriority] = useState<Priority>("trung_binh");
   const [dependsOn, setDependsOn] = useState<string>("");
   const [brief, setBrief] = useState<string>("");
 
@@ -41,7 +42,7 @@ export default function QuickAddTask({
       client_id: clientId,
       deadline,
       kind: showMore ? kind : null,
-      weight: showMore ? weight : 1,
+      priority: showMore ? priority : "trung_binh",
       depends_on_task_id: showMore && dependsOn ? dependsOn : null,
       brief: showMore && brief.trim() ? brief.trim() : null,
     });
@@ -118,8 +119,24 @@ export default function QuickAddTask({
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Độ nặng: {["", "Nhẹ", "Vừa", "Nặng"][weight]}</label>
-                <input type="range" min={1} max={3} value={weight} onChange={(e) => setWeight(+e.target.value)} className="w-full accent-[var(--accent)]" />
+                <label className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Mức độ ưu tiên</label>
+                <div className="flex gap-2">
+                  {(Object.keys(PRIORITY_META) as Priority[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPriority(p)}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-all",
+                        priority === p
+                          ? PRIORITY_META[p].className
+                          : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-faint)] hover:text-[var(--text)]"
+                      )}
+                    >
+                      {PRIORITY_META[p].label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <Field label="Chờ task khác xong (handoff)">
                 <select value={dependsOn} onChange={(e) => setDependsOn(e.target.value)} className="ui-select">

@@ -31,18 +31,18 @@ export function isDueSoon(t: Task): boolean {
   return t.status !== "xong" && n >= 0 && n <= 2;
 }
 
-// Tải của một người: số task đang mở + tổng độ nặng (mục 6.3)
+// Tải của một người: số task đang mở + số task ưu tiên cao (mục 6.3)
 export function workloadOf(tasks: Task[], userId: string) {
   const open = tasks.filter((t) => t.assignee_id === userId && t.status !== "xong");
-  const weight = open.reduce((s, t) => s + t.weight, 0);
+  const highPriority = open.filter((t) => t.priority === "cao").length;
   const clients = new Set(open.map((t) => t.client_id).filter(Boolean)).size;
-  return { openCount: open.length, weight, clientCount: clients };
+  return { openCount: open.length, highPriority, clientCount: clients };
 }
 
-// Mức tải → nhãn màu (để cảnh báo "ai đang quá tải" — nỗi đau #1)
-export function loadLevel(weight: number): { label: string; tone: "ok" | "warn" | "danger" } {
-  if (weight >= 7) return { label: "Quá tải", tone: "danger" };
-  if (weight >= 4) return { label: "Đang bận", tone: "warn" };
+// Mức tải → nhãn màu (theo số task đang mở — cảnh báo "ai đang quá tải", nỗi đau #1)
+export function loadLevel(openCount: number): { label: string; tone: "ok" | "warn" | "danger" } {
+  if (openCount >= 6) return { label: "Quá tải", tone: "danger" };
+  if (openCount >= 3) return { label: "Đang bận", tone: "warn" };
   return { label: "Thoải mái", tone: "ok" };
 }
 
