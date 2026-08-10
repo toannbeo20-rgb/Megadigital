@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { updateUserAction, resetPasswordAction, deleteUserAction } from "@/app/actions/user";
+import { useEffect, useState, useTransition } from "react";
+import { updateUserAction, resetPasswordAction, deleteUserAction, getUserEmailAction } from "@/app/actions/user";
 import type { User } from "@/lib/types";
+import { Avatar } from "./ui";
 import { cn } from "@/lib/utils";
 
 const STAFF_ROLES = ["Content Creator", "Editor", "Designer", "Digital Marketing"];
@@ -25,6 +26,12 @@ export default function ManageUserModal({
   const [roles, setRoles] = useState<string[]>(user.roles);
   const [newPassword, setNewPassword] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [email, setEmail] = useState<string>("");
+
+  // Lấy email đăng nhập để hiển thị
+  useEffect(() => {
+    getUserEmailAction(user.id).then((r) => setEmail(r.email ?? ""));
+  }, [user.id]);
 
   // Gộp role định sẵn theo quyền + role hiện có của user (để chỉnh được cả role cũ)
   const preset = permission === "manager" ? MANAGER_ROLES : STAFF_ROLES;
@@ -72,12 +79,22 @@ export default function ManageUserModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={!isPending ? onClose : undefined} />
 
-      <div className="relative w-full max-w-lg scale-100 animate-in fade-in zoom-in-95 rounded-2xl bg-[var(--surface)] p-6 shadow-2xl ring-1 ring-[var(--border)]">
-        <h2 className="text-xl font-black text-[var(--text)]">Quản lý tài khoản</h2>
-        <p className="mb-5 mt-1 text-sm text-[var(--text-muted)]">
-          {user.name.replace(/\(.*?\)/g, "").trim()}
-          {isSelf && <span className="ml-2 text-[var(--accent)]">(bạn)</span>}
-        </p>
+      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto scale-100 animate-in fade-in zoom-in-95 rounded-2xl bg-[var(--surface)] p-6 shadow-2xl ring-1 ring-[var(--border)]">
+        {/* Header nhận diện: avatar + tên + email đăng nhập */}
+        <div className="mb-5 flex items-center gap-3">
+          <Avatar user={user} size={44} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="truncate text-lg font-black text-[var(--text)]">
+                {user.name.replace(/\(.*?\)/g, "").trim()}
+              </h2>
+              {isSelf && <span className="text-xs font-semibold text-[var(--accent)]">(bạn)</span>}
+            </div>
+            <p className="truncate text-sm text-[var(--text-muted)]">
+              {email || <span className="text-[var(--text-faint)]">đang tải email…</span>}
+            </p>
+          </div>
+        </div>
 
         {msg && (
           <div

@@ -82,6 +82,20 @@ async function requireManager() {
   return { admin: getSupabaseAdmin(), meId: me.id as string };
 }
 
+// Lấy email đăng nhập của nhân sự (từ auth.users) để hiển thị khi quản lý
+export async function getUserEmailAction(userId: string) {
+  try {
+    const { admin } = await requireManager();
+    const { data: u } = await admin.from("users").select("auth_id").eq("id", userId).single();
+    if (!u?.auth_id) return { success: false, email: "" };
+    const { data, error } = await admin.auth.admin.getUserById(u.auth_id);
+    if (error) return { success: false, email: "" };
+    return { success: true, email: data.user?.email ?? "" };
+  } catch {
+    return { success: false, email: "" };
+  }
+}
+
 // Sửa thông tin nhân sự (tên, quyền, vai trò)
 export async function updateUserAction(
   userId: string,
