@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import type { TaskKind, Priority } from "@/lib/types";
 import { PRIORITY_META } from "@/lib/types";
@@ -17,20 +18,28 @@ const KINDS: { value: Exclude<TaskKind, null>; label: string }[] = [
 export default function QuickAddTask({
   onClose,
   defaultClientId,
+  defaultDependsOn,
+  defaultKind,
+  defaultTitle,
 }: {
   onClose: () => void;
   defaultClientId?: string;
+  defaultDependsOn?: string;
+  defaultKind?: TaskKind;
+  defaultTitle?: string;
 }) {
   const { users, clients, tasks, addTask } = useStore();
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(defaultTitle ?? "");
   const [assignee, setAssignee] = useState(users[0]?.id ?? "");
   const [clientId, setClientId] = useState(defaultClientId ?? clients[0]?.id ?? "");
   const [deadline, setDeadline] = useState(new Date().toISOString().slice(0, 10));
-  const [showMore, setShowMore] = useState(false);
-  const [kind, setKind] = useState<TaskKind>(null);
+  const [showMore, setShowMore] = useState(Boolean(defaultDependsOn || defaultKind));
+  const [kind, setKind] = useState<TaskKind>(defaultKind ?? null);
   const [priority, setPriority] = useState<Priority>("trung_binh");
-  const [dependsOn, setDependsOn] = useState<string>("");
+  const [dependsOn, setDependsOn] = useState<string>(defaultDependsOn ?? "");
   const [brief, setBrief] = useState<string>("");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const canSave = title.trim() && assignee && clientId && deadline;
 
@@ -49,8 +58,10 @@ export default function QuickAddTask({
     onClose();
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm md:items-center md:p-4" onClick={onClose}>
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm md:items-center md:p-4" onClick={onClose}>
       <div
         className="animate-bounce-in w-full max-w-lg overflow-hidden rounded-t-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lg)] md:rounded-[var(--radius)]"
         onClick={(e) => e.stopPropagation()}
@@ -179,7 +190,8 @@ export default function QuickAddTask({
         }
         .ui-select:focus { border-color: var(--accent); }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
 

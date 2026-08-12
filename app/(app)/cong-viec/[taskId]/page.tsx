@@ -15,6 +15,8 @@ import {
 import { Avatar, Badge } from "@/components/ui";
 import CommentComposer from "@/components/CommentComposer";
 import ContentEditor from "@/components/ContentEditor";
+import UpstreamContentPanel from "@/components/UpstreamContentPanel";
+import QuickAddTask from "@/components/QuickAddTask";
 import { deadlineLabel, cn } from "@/lib/utils";
 
 export default function TaskDetailPage() {
@@ -42,6 +44,7 @@ export default function TaskDetailPage() {
   const [saved, setSaved] = useState(false);
   const [briefOpen, setBriefOpen] = useState(false); // Brief thu gọn để content nổi lên
   const [notesOpen, setNotesOpen] = useState(false);
+  const [showNextTask, setShowNextTask] = useState(false); // tạo việc khâu sau (design/editor)
 
   useEffect(() => {
     if (task) {
@@ -311,10 +314,23 @@ export default function TaskDetailPage() {
               )}
             </div>
           )}
+
+          {/* Chuyển sang khâu sau: tạo task design/editor nối chuỗi */}
+          {isManager && (
+            <button
+              onClick={() => setShowNextTask(true)}
+              className="w-full rounded-xl border border-dashed border-[var(--border)] px-3 py-2.5 text-sm font-semibold text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+            >
+              ➕ Tạo việc khâu sau (design / dựng)
+            </button>
+          )}
         </div>{/* ===== end CỘT TRÁI ===== */}
 
         {/* ===== CỘT PHẢI: brief · nội dung · trao đổi ===== */}
         <div className="mt-6 space-y-5 lg:mt-0">
+
+        {/* Đầu vào từ khâu trước (nếu task này nối chuỗi) */}
+        <UpstreamContentPanel task={task} />
 
         {/* Brief có cấu trúc (M2) — thu gọn được */}
         <div className="card p-4">
@@ -451,6 +467,16 @@ export default function TaskDetailPage() {
       </div>
         </div>{/* ===== end CỘT PHẢI ===== */}
       </div>{/* ===== end bố cục 2 cột ===== */}
+
+      {showNextTask && (
+        <QuickAddTask
+          onClose={() => setShowNextTask(false)}
+          defaultClientId={task.client_id ?? undefined}
+          defaultDependsOn={task.id}
+          defaultKind="design"
+          defaultTitle={`Thiết kế: ${task.title}`}
+        />
+      )}
 
       {/* Meta footer */}
       <div className="mt-6 flex items-center justify-between text-xs text-[var(--text-faint)]">
