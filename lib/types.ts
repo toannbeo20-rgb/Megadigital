@@ -14,6 +14,19 @@ export type JobStatus = "pitch" | "dang_chay" | "cho_duyet" | "done";
 export type TaskStatus = "ton" | "dang_lam" | "cho_duyet" | "xong";
 export type TaskKind = "content" | "design" | "media" | "account" | null;
 
+// Định dạng sản phẩm bàn giao (poster / short video / …) — để mềm, đa ngành
+export const TASK_FORMATS = [
+  "Bài viết",
+  "Poster",
+  "Short video",
+  "Reel",
+  "Banner",
+  "Album ảnh",
+  "Video dài",
+  "Landing page",
+  "Khác",
+] as const;
+
 // Mức độ ưu tiên (thay cho "độ nặng" cũ)
 export type Priority = "thap" | "trung_binh" | "cao";
 export const PRIORITY_META: Record<Priority, { label: string; className: string; dot: string }> = {
@@ -74,6 +87,7 @@ export interface Task {
   assignee_id: string;
   kind: TaskKind;
   priority: Priority | null; // mức độ ưu tiên (thay cho weight)
+  format?: string | null; // định dạng sản phẩm: poster / short video / …
   deadline: string; // date
   depends_on_task_id: string | null;
   status: TaskStatus;

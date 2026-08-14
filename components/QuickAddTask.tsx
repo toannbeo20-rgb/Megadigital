@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import type { TaskKind, Priority } from "@/lib/types";
-import { PRIORITY_META } from "@/lib/types";
+import { PRIORITY_META, TASK_FORMATS } from "@/lib/types";
 import { IconClose } from "./icons";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,7 @@ export default function QuickAddTask({
   const [showMore, setShowMore] = useState(Boolean(defaultDependsOn || defaultKind));
   const [kind, setKind] = useState<TaskKind>(defaultKind ?? null);
   const [priority, setPriority] = useState<Priority>("trung_binh");
+  const [format, setFormat] = useState<string>("");
   const [dependsOn, setDependsOn] = useState<string>(defaultDependsOn ?? "");
   const [brief, setBrief] = useState<string>("");
   const [mounted, setMounted] = useState(false);
@@ -52,6 +53,7 @@ export default function QuickAddTask({
       deadline,
       kind: showMore ? kind : null,
       priority: showMore ? priority : "trung_binh",
+      format: showMore && format ? format : null,
       depends_on_task_id: showMore && dependsOn ? dependsOn : null,
       brief: showMore && brief.trim() ? brief.trim() : null,
     });
@@ -149,6 +151,14 @@ export default function QuickAddTask({
                   ))}
                 </div>
               </div>
+              <Field label="Định dạng sản phẩm">
+                <select value={format} onChange={(e) => setFormat(e.target.value)} className="ui-select">
+                  <option value="">— Chưa chọn —</option>
+                  {TASK_FORMATS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Chờ task khác xong (handoff)">
                 <select value={dependsOn} onChange={(e) => setDependsOn(e.target.value)} className="ui-select">
                   <option value="">— Không —</option>

@@ -8,6 +8,7 @@ import {
   KIND_META,
   BRIEF_FIELDS,
   PRIORITY_META,
+  TASK_FORMATS,
   type BriefData,
   type Priority,
   type TaskKind,
@@ -37,6 +38,7 @@ export default function TaskDetailPage() {
   const [editDeadline, setEditDeadline] = useState("");
   const [editKind, setEditKind] = useState<TaskKind>(null);
   const [editPriority, setEditPriority] = useState<Priority>("trung_binh");
+  const [editFormat, setEditFormat] = useState<string>("");
   const [editDepends, setEditDepends] = useState<string | null>(null);
   const [editBrief, setEditBrief] = useState<string>("");
   const [editBriefData, setEditBriefData] = useState<BriefData>({});
@@ -53,6 +55,7 @@ export default function TaskDetailPage() {
       setEditDeadline(task.deadline);
       setEditKind(task.kind);
       setEditPriority(task.priority ?? "trung_binh");
+      setEditFormat(task.format ?? "");
       setEditDepends(task.depends_on_task_id);
       setEditBrief(task.brief ?? "");
       setEditBriefData(task.brief_data ?? {});
@@ -94,6 +97,7 @@ export default function TaskDetailPage() {
       deadline: editDeadline,
       kind: editKind,
       priority: editPriority,
+      format: editFormat || null,
       depends_on_task_id: editDepends,
       brief: editBrief.trim() ? editBrief.trim() : null,
       brief_data: hasBrief ? bd : null,
@@ -269,6 +273,25 @@ export default function TaskDetailPage() {
               </button>
             ))}
           </div>
+        </FieldBlock>
+
+        {/* Định dạng sản phẩm */}
+        <FieldBlock label="Định dạng sản phẩm">
+          {canEdit ? (
+            <select
+              value={editFormat}
+              onChange={(e) => setEditFormat(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]">
+              <option value="">— Chưa chọn —</option>
+              {TASK_FORMATS.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-sm">
+              {task.format || <span className="text-[var(--text-faint)]">Chưa chọn</span>}
+            </p>
+          )}
         </FieldBlock>
 
         {/* Depends on */}

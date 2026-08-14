@@ -94,6 +94,9 @@ export function TaskCard({
           <Badge className="bg-[var(--surface-2)] text-[var(--text-muted)]">{client.name}</Badge>
         )}
         {kind && <Badge className={kind.color}>{kind.label}</Badge>}
+        {task.format && (
+          <Badge className="bg-[var(--surface-3)] text-[var(--text-muted)]">{task.format}</Badge>
+        )}
         {task.depends_on_task_id && (
           <Badge className="bg-[rgba(255,179,64,0.15)] text-[var(--warn)] border border-[rgba(255,179,64,0.25)]">
             <IconLink /> Chờ handoff

@@ -52,6 +52,7 @@ interface NewTaskInput {
   deadline: string;
   kind?: Task["kind"];
   priority?: Priority | null;
+  format?: string | null;
   depends_on_task_id?: string | null;
   brief?: string | null;
   brief_data?: BriefData | null;
@@ -322,6 +323,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       assignee_id: input.assignee_id,
       kind: input.kind ?? null,
       priority: input.priority ?? "trung_binh",
+      format: input.format ?? null,
       deadline: input.deadline,
       depends_on_task_id: input.depends_on_task_id ?? null,
       brief: input.brief ?? null,
