@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { BriefData, Client, Content, Job, Presence, Priority, Task, TaskStatus, User, Comment } from "./types";
+import type { BriefData, Client, Content, Job, Presence, Priority, ScheduleEntry, Task, TaskStatus, User, Comment } from "./types";
 import { mockClients, mockJobs, mockTasks, mockUsers } from "./mock-data";
 import { sendLocalNotification, sendPushToUsers } from "./pwa";
 import { getSupabaseBrowser, isSupabaseConfigured } from "./supabase/client";
@@ -98,6 +98,9 @@ interface StoreValue {
   ) => Promise<void>;
   setPresence: (userId: string, presence: Presence, note?: string | null) => Promise<void>;
   markAllNotisRead: () => void;
+  scheduleEntries: ScheduleEntry[];
+  addScheduleEntry: (date: string, note: string) => Promise<void>;
+  deleteScheduleEntry: (id: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -147,6 +150,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(useSupabase ? [] : mockTasks);
   const [comments, setComments] = useState<Comment[]>([]);
   const [contents, setContents] = useState<Content[]>([]);
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(useSupabase);
@@ -164,13 +168,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!authUser) return;
 
         // Fetch toàn bộ data song song
-        const [usersRes, clientsRes, jobsRes, tasksRes, commentsRes, contentsRes] = await Promise.all([
+        const [usersRes, clientsRes, jobsRes, tasksRes, commentsRes, contentsRes, scheduleRes] = await Promise.all([
           supabase!.from("users").select("*"),
           supabase!.from("clients").select("*"),
           supabase!.from("jobs").select("*"),
           supabase!.from("tasks").select("*"),
           supabase!.from("comments").select("*"),
           supabase!.from("contents").select("*"),
+          supabase!.from("schedule_entries").select("*"),
         ]);
 
         if (usersRes.data) setUsers(usersRes.data as User[]);
@@ -179,6 +184,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (tasksRes.data) setTasks(tasksRes.data as Task[]);
         if (commentsRes.data) setComments(commentsRes.data as Comment[]);
         if (contentsRes.data) setContents(contentsRes.data as Content[]);
+        if (scheduleRes.data) setScheduleEntries(scheduleRes.data as ScheduleEntry[]);
 
         // currentUser = bản ghi public.users khớp auth_id
         const me = usersRes.data?.find((u: User & { auth_id?: string }) => u.auth_id === authUser.id);
@@ -291,6 +297,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "contents" }, (payload) => {
         setContents((prev) => prev.filter((x) => x.id !== payload.old.id));
+      })
+      // Schedule (lịch làm việc) realtime
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "schedule_entries" }, (payload) => {
+        const s = payload.new as ScheduleEntry;
+        setScheduleEntries((prev) => (prev.find((x) => x.id === s.id) ? prev : [...prev, s]));
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "schedule_entries" }, (payload) => {
+        setScheduleEntries((prev) => prev.map((x) => (x.id === payload.new.id ? (payload.new as ScheduleEntry) : x)));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "schedule_entries" }, (payload) => {
+        setScheduleEntries((prev) => prev.filter((x) => x.id !== payload.old.id));
       })
       // Notifications realtime (chỉ của mình)
       .on(
@@ -648,6 +665,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---- Lịch làm việc ----
+  const addScheduleEntry = useCallback(async (date: string, note: string) => {
+    if (!note.trim() || !currentUserId) return;
+    const row = { user_id: currentUserId, date, note: note.trim() };
+    if (useSupabase && supabase) {
+      const { data, error } = await supabase.from("schedule_entries").insert(row).select().single();
+      if (error) {
+        console.error("addScheduleEntry error:", error);
+        alert(`Lỗi thêm lịch (đã chạy migration_schedule.sql chưa?): ${error.message}`);
+      } else if (data) {
+        setScheduleEntries((prev) => (prev.find((x) => x.id === data.id) ? prev : [...prev, data as ScheduleEntry]));
+      }
+    } else {
+      const s: ScheduleEntry = { ...row, id: uid(), created_at: new Date().toISOString() };
+      setScheduleEntries((prev) => [...prev, s]);
+    }
+  }, [useSupabase, supabase, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const deleteScheduleEntry = useCallback(async (id: string) => {
+    if (useSupabase && supabase) {
+      await supabase.from("schedule_entries").delete().eq("id", id);
+    }
+    setScheduleEntries((prev) => prev.filter((x) => x.id !== id));
+  }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const markAllNotisRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     if (useSupabase && supabase && currentUserId) {
@@ -681,8 +723,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateContent,
       setPresence,
       markAllNotisRead,
+      scheduleEntries,
+      addScheduleEntry,
+      deleteScheduleEntry,
     }),
-    [users, clientsState, jobs, tasks, comments, contents, notifications, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, deleteAllTasks, addJob, updateJob, addComment, addContent, updateContent, setPresence, markAllNotisRead]
+    [users, clientsState, jobs, tasks, comments, contents, scheduleEntries, notifications, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, deleteAllTasks, addJob, updateJob, addComment, addContent, updateContent, setPresence, markAllNotisRead, addScheduleEntry, deleteScheduleEntry]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

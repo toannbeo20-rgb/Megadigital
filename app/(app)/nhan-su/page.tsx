@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { PRESENCE_META, type User } from "@/lib/types";
 import { PageHeader, Avatar, Badge } from "@/components/ui";
@@ -172,6 +173,14 @@ export default function PeoplePage() {
                   <Stat label="Khách đang gánh" value={load.clientCount} />
                 </div>
               )}
+
+              {/* Xem lịch làm việc của người này */}
+              <Link
+                href={`/lich?user=${u.id}`}
+                className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] py-1.5 text-xs font-semibold text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+              >
+                📅 Xem lịch làm việc
+              </Link>
             </div>
           );
         })}

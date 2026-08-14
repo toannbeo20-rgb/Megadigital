@@ -106,6 +106,15 @@ export const BRIEF_FIELDS: { key: keyof Omit<BriefData, "refs">; label: string; 
   { key: "format", label: "Định dạng", placeholder: "Ví dụ: 3 post + 1 reel" },
 ];
 
+// Lịch làm việc — 1 note trên 1 ngày của 1 người
+export interface ScheduleEntry {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  note: string;
+  created_at: string;
+}
+
 export interface Comment {
   id: string;
   task_id: string;

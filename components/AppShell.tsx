@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./ui";
 import {
-  IconToday, IconBoard, IconPeople, IconClients, IconPlus,
+  IconToday, IconBoard, IconPeople, IconClients, IconPlus, IconCalendar,
 } from "./icons";
 import NotificationBell from "./NotificationBell";
 import QuickAddTask from "./QuickAddTask";
@@ -18,6 +18,7 @@ const NAV = [
   { href: "/", label: "Hôm nay", Icon: IconToday },
   { href: "/cong-viec", label: "Công việc", Icon: IconBoard },
   { href: "/nhan-su", label: "Nhân sự", Icon: IconPeople },
+  { href: "/lich", label: "Lịch", Icon: IconCalendar },
   { href: "/khach", label: "Khách", Icon: IconClients },
 ];
 
@@ -30,6 +31,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
     ...NAV,
     ...(currentUser.permission === "manager" ? [{ href: "/duyet", label: "Duyệt nhanh", Icon: IconBoard }] : []),
   ];
+
+  // Nav đáy mobile: 4 mục cốt lõi (Lịch truy cập qua sidebar + link ở Nhân sự)
+  const mobileNav = NAV.filter((n) => n.href !== "/lich");
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -127,7 +131,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       {/* ===== Bottom nav (mobile) ===== */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-[var(--border)] bg-[var(--surface)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        {navItems.slice(0, 2).map(({ href, label, Icon }) => (
+        {mobileNav.slice(0, 2).map(({ href, label, Icon }) => (
           <NavItem key={href} href={href} label={label} Icon={Icon} active={isActive(href)} />
         ))}
         {/* Nút tạo task nổi ở giữa */}
@@ -138,7 +142,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         >
           <IconPlus />
         </button>
-        {navItems.slice(2, 4).map(({ href, label, Icon }) => (
+        {mobileNav.slice(2, 4).map(({ href, label, Icon }) => (
           <NavItem key={href} href={href} label={label} Icon={Icon} active={isActive(href)} />
         ))}
       </nav>
