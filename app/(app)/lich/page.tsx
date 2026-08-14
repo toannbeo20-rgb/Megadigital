@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
 import { PageHeader, Avatar } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import type { User } from "@/lib/types";
+import { SLOT_META, type ScheduleSlot, type User } from "@/lib/types";
 
 const WEEKDAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
@@ -134,10 +134,12 @@ export default function CalendarPage() {
               <div className="mt-1 flex flex-col gap-1">
                 {dayEntries.slice(0, 3).map((e) => {
                   const u = users.find((x) => x.id === e.user_id);
+                  const sm = SLOT_META[(e.slot as ScheduleSlot) ?? "ca_ngay"];
                   return (
-                    <div key={e.id} className="flex items-center gap-1 rounded-md bg-[var(--surface-2)] px-1.5 py-0.5">
+                    <div key={e.id} className={cn("flex items-center gap-1 rounded-md border px-1.5 py-0.5", sm.className)}>
                       {isAll && u && <Avatar user={u} size={14} />}
-                      <span className="truncate text-[11px] leading-tight text-[var(--text)]">{e.note}</span>
+                      <span className="shrink-0 text-[10px] leading-none">{sm.icon}</span>
+                      <span className="truncate text-[11px] leading-tight">{e.note}</span>
                     </div>
                   );
                 })}
@@ -154,7 +156,7 @@ export default function CalendarPage() {
           <DayModal
             date={selectedDay}
             entries={selectedEntries}
-            onAdd={(note) => addScheduleEntry(selectedDay, note)}
+            onAdd={(note, slot) => addScheduleEntry(selectedDay, note, slot)}
             onDelete={(id) => deleteScheduleEntry(id)}
             onClose={() => setSelectedDay(null)}
           />,
@@ -172,20 +174,25 @@ function DayModal({
   onClose,
 }: {
   date: string;
-  entries: { id: string; note: string }[];
-  onAdd: (note: string) => void;
+  entries: { id: string; note: string; slot?: ScheduleSlot }[];
+  onAdd: (note: string, slot: ScheduleSlot) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
   const [note, setNote] = useState("");
+  const [slot, setSlot] = useState<ScheduleSlot>("sang");
   const d = new Date(date + "T00:00:00");
   const label = `${["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d.getDay()]}, ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
 
   function submit() {
     if (!note.trim()) return;
-    onAdd(note.trim());
+    onAdd(note.trim(), slot);
     setNote("");
   }
+
+  // Sắp theo buổi: sáng → chiều → cả ngày
+  const order: Record<ScheduleSlot, number> = { sang: 0, chieu: 1, ca_ngay: 2 };
+  const sorted = [...entries].sort((a, b) => order[a.slot ?? "ca_ngay"] - order[b.slot ?? "ca_ngay"]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -193,17 +200,41 @@ function DayModal({
       <div className="relative w-full max-w-md scale-100 animate-in fade-in zoom-in-95 rounded-2xl bg-[var(--surface)] p-5 shadow-2xl ring-1 ring-[var(--border)]">
         <h2 className="mb-3 text-lg font-black text-[var(--text)]">Lịch ngày {label}</h2>
 
-        <div className="mb-3 flex flex-col gap-2">
-          {entries.length === 0 ? (
+        <div className="mb-4 flex flex-col gap-2">
+          {sorted.length === 0 ? (
             <p className="text-sm italic text-[var(--text-faint)]">Chưa có lịch. Thêm bên dưới.</p>
           ) : (
-            entries.map((e) => (
-              <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg bg-[var(--surface-2)] px-3 py-2">
-                <span className="text-sm text-[var(--text)]">{e.note}</span>
-                <button onClick={() => onDelete(e.id)} className="shrink-0 text-xs font-semibold text-red-500 hover:underline">Xoá</button>
-              </div>
-            ))
+            sorted.map((e) => {
+              const sm = SLOT_META[e.slot ?? "ca_ngay"];
+              return (
+                <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg bg-[var(--surface-2)] px-3 py-2">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className={cn("shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-semibold", sm.className)}>
+                      {sm.icon} {sm.label}
+                    </span>
+                    <span className="truncate text-sm text-[var(--text)]">{e.note}</span>
+                  </span>
+                  <button onClick={() => onDelete(e.id)} className="shrink-0 text-xs font-semibold text-red-500 hover:underline">Xoá</button>
+                </div>
+              );
+            })
           )}
+        </div>
+
+        {/* Chọn buổi */}
+        <div className="mb-2 flex gap-2">
+          {(Object.keys(SLOT_META) as ScheduleSlot[]).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSlot(s)}
+              className={cn(
+                "flex-1 rounded-lg border px-2 py-1.5 text-sm font-semibold transition-all",
+                slot === s ? SLOT_META[s].className : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-faint)] hover:text-[var(--text)]"
+              )}
+            >
+              {SLOT_META[s].icon} {SLOT_META[s].label}
+            </button>
+          ))}
         </div>
 
         <div className="flex gap-2">
@@ -211,7 +242,7 @@ function DayModal({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            placeholder='Ví dụ: Đi quay BĐS Hoàng Gia, sáng'
+            placeholder="Ví dụ: Đi quay BĐS Hoàng Gia"
             className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
           />
           <button onClick={submit} disabled={!note.trim()} className="btn-accent shrink-0 rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-40">Thêm</button>

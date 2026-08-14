@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { BriefData, Client, Content, Job, Presence, Priority, ScheduleEntry, Task, TaskStatus, User, Comment } from "./types";
+import type { BriefData, Client, Content, Job, Presence, Priority, ScheduleEntry, ScheduleSlot, Task, TaskStatus, User, Comment } from "./types";
 import { mockClients, mockJobs, mockTasks, mockUsers } from "./mock-data";
 import { sendLocalNotification, sendPushToUsers } from "./pwa";
 import { getSupabaseBrowser, isSupabaseConfigured } from "./supabase/client";
@@ -99,7 +99,7 @@ interface StoreValue {
   setPresence: (userId: string, presence: Presence, note?: string | null) => Promise<void>;
   markAllNotisRead: () => void;
   scheduleEntries: ScheduleEntry[];
-  addScheduleEntry: (date: string, note: string) => Promise<void>;
+  addScheduleEntry: (date: string, note: string, slot: ScheduleSlot) => Promise<void>;
   deleteScheduleEntry: (id: string) => Promise<void>;
 }
 
@@ -666,11 +666,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [useSupabase, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Lịch làm việc ----
-  const addScheduleEntry = useCallback(async (date: string, note: string) => {
+  const addScheduleEntry = useCallback(async (date: string, note: string, slot: ScheduleSlot) => {
     if (!note.trim() || !currentUserId) return;
-    const row = { user_id: currentUserId, date, note: note.trim() };
+    const row = { user_id: currentUserId, date, slot, note: note.trim() };
     if (useSupabase && supabase) {
-      const { data, error } = await supabase.from("schedule_entries").insert(row).select().single();
+      let { data, error } = await supabase.from("schedule_entries").insert(row).select().single();
+      // Tự lành nếu bảng cũ chưa có cột slot
+      if (error && /slot/i.test(error.message)) {
+        const { slot: _s, ...noSlot } = row;
+        void _s;
+        ({ data, error } = await supabase.from("schedule_entries").insert(noSlot).select().single());
+      }
       if (error) {
         console.error("addScheduleEntry error:", error);
         alert(`Lỗi thêm lịch (đã chạy migration_schedule.sql chưa?): ${error.message}`);

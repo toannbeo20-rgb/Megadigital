@@ -106,11 +106,23 @@ export const BRIEF_FIELDS: { key: keyof Omit<BriefData, "refs">; label: string; 
   { key: "format", label: "Định dạng", placeholder: "Ví dụ: 3 post + 1 reel" },
 ];
 
-// Lịch làm việc — 1 note trên 1 ngày của 1 người
+// Buổi trong ngày cho lịch làm việc
+export type ScheduleSlot = "sang" | "chieu" | "ca_ngay";
+export const SLOT_META: Record<
+  ScheduleSlot,
+  { label: string; short: string; icon: string; className: string; dot: string }
+> = {
+  sang:    { label: "Sáng",    short: "Sáng",    icon: "🌅", className: "bg-amber-500/15 text-amber-300 border-amber-500/30",   dot: "bg-amber-400" },
+  chieu:   { label: "Chiều",   short: "Chiều",   icon: "🌇", className: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30", dot: "bg-indigo-400" },
+  ca_ngay: { label: "Cả ngày", short: "Cả ngày", icon: "📌", className: "bg-[var(--surface-3)] text-[var(--text-muted)] border-[var(--border)]", dot: "bg-slate-400" },
+};
+
+// Lịch làm việc — 1 note trên 1 ngày của 1 người (theo buổi)
 export interface ScheduleEntry {
   id: string;
   user_id: string;
   date: string; // YYYY-MM-DD
+  slot: ScheduleSlot;
   note: string;
   created_at: string;
 }

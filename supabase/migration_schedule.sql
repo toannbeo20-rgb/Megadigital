@@ -7,10 +7,14 @@ create table if not exists schedule_entries (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references users(id) on delete cascade,
   date        date not null,
+  slot        text not null default 'ca_ngay',   -- sang | chieu | ca_ngay
   note        text not null,
   created_at  timestamptz not null default now()
 );
 create index if not exists idx_schedule_user_date on schedule_entries(user_id, date);
+
+-- Nếu bảng đã tạo từ trước (chưa có cột slot) → thêm cột
+alter table schedule_entries add column if not exists slot text not null default 'ca_ngay';
 
 alter table schedule_entries enable row level security;
 
