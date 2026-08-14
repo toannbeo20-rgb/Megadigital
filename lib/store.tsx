@@ -18,6 +18,7 @@ import type { BriefData, Client, Content, Job, Presence, Priority, Task, TaskSta
 import { mockClients, mockJobs, mockTasks, mockUsers } from "./mock-data";
 import { sendLocalNotification, sendPushToUsers } from "./pwa";
 import { getSupabaseBrowser, isSupabaseConfigured } from "./supabase/client";
+import { deleteAllTasksAction } from "@/app/actions/task";
 
 export interface Notification {
   id: string;
@@ -70,6 +71,7 @@ interface StoreValue {
   setCurrentUser: (id: string) => void;
   addTask: (input: NewTaskInput) => Promise<void>;
   moveTask: (taskId: string, status: TaskStatus) => Promise<void>;
+  deleteAllTasks: () => Promise<{ ok: boolean; count?: number; error?: string }>;
   updateTask: (taskId: string, patch: Partial<Omit<Task, "id" | "created_at">>) => Promise<void>;
   addClient: (input: { 
     name: string; 
@@ -617,6 +619,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [useSupabase, supabase, contents, tasks, moveTask]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Xoá toàn bộ task (manager) — content/comment của task tự xoá theo cascade.
+  const deleteAllTasks = useCallback(async () => {
+    if (useSupabase && supabase) {
+      const res = await deleteAllTasksAction();
+      if (!res.success) return { ok: false, error: res.error };
+      setTasks([]);
+      setContents([]);
+      setComments([]);
+      return { ok: true, count: res.count };
+    } else {
+      const count = tasks.length;
+      setTasks([]);
+      setContents([]);
+      setComments([]);
+      return { ok: true, count };
+    }
+  }, [useSupabase, supabase, tasks]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const setPresence = useCallback(async (userId: string, presence: Presence, note?: string | null) => {
     const patch = { presence, status_note: note ?? null, last_active_at: new Date().toISOString() };
     if (useSupabase && supabase) {
@@ -652,6 +672,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addTask,
       moveTask,
       updateTask,
+      deleteAllTasks,
       addJob,
       updateJob,
       addComment,
@@ -661,7 +682,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPresence,
       markAllNotisRead,
     }),
-    [users, clientsState, jobs, tasks, comments, contents, notifications, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, addJob, updateJob, addComment, addContent, updateContent, setPresence, markAllNotisRead]
+    [users, clientsState, jobs, tasks, comments, contents, notifications, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, deleteAllTasks, addJob, updateJob, addComment, addContent, updateContent, setPresence, markAllNotisRead]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

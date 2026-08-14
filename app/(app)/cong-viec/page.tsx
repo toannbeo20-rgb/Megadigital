@@ -6,6 +6,7 @@ import type { TaskStatus } from "@/lib/types";
 import { TASK_STATUS_META } from "@/lib/types";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { TaskCard } from "@/components/TaskCard";
+import DeleteAllTasksButton from "@/components/DeleteAllTasksButton";
 import { cn } from "@/lib/utils";
 
 const COLUMNS: TaskStatus[] = ["ton", "dang_lam", "cho_duyet", "xong"];
@@ -71,18 +72,21 @@ export default function BoardPage() {
         title="Công việc"
         subtitle="Kéo thả task giữa các cột. Cập nhật realtime cho cả team."
         action={
-          <select
-            value={clientFilter}
-            onChange={(e) => setClientFilter(e.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)] transition-colors"
-          >
-            <option value="">Tất cả khách</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)] transition-colors"
+            >
+              <option value="">Tất cả khách</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {currentUser.permission === "manager" && <DeleteAllTasksButton />}
+          </div>
         }
       />
 
