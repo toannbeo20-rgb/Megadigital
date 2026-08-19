@@ -54,6 +54,9 @@ interface NewTaskInput {
   kind?: Task["kind"];
   priority?: Priority | null;
   format?: string | null;
+  channel?: string | null;
+  funnel?: string | null;
+  publish_date?: string | null;
   depends_on_task_id?: string | null;
   brief?: string | null;
   brief_data?: BriefData | null;
@@ -343,6 +346,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       kind: input.kind ?? null,
       priority: input.priority ?? "trung_binh",
       format: input.format ?? null,
+      channel: input.channel ?? null,
+      funnel: input.funnel ?? null,
+      publish_date: input.publish_date ?? null,
+      published_at: null,
       deadline: input.deadline,
       depends_on_task_id: input.depends_on_task_id ?? null,
       brief: input.brief ?? null,

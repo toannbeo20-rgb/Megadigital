@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import { Avatar } from "@/components/ui";
 import { TaskCard } from "@/components/TaskCard";
 import QuickAddTask from "@/components/QuickAddTask";
+import ContentPlanTable from "@/components/ContentPlanTable";
 import { cn } from "@/lib/utils";
 
 export default function ClientDetailPage() {
@@ -19,6 +20,7 @@ export default function ClientDetailPage() {
   const isManager = currentUser.permission === "manager";
 
   const [showNewTask, setShowNewTask] = useState(false);
+  const [view, setView] = useState<"plan" | "cards">("plan");
 
   if (!client) {
     return (
@@ -131,35 +133,53 @@ export default function ClientDetailPage() {
         )}
       </div>
 
-      {/* Tasks header + add button */}
-      <div className="mb-4 flex items-center justify-between">
+      {/* Tasks header + toggle + add button */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-faint)]">
-          Danh sách Task ({clientTasks.length})
+          Kế hoạch nội dung ({clientTasks.length})
         </h2>
-        {isManager && (
-          <button
-            onClick={() => setShowNewTask(true)}
-            className="btn-accent flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-all shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5"
-          >
-            + Tạo task
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-[var(--border)] p-0.5">
+            <button
+              onClick={() => setView("plan")}
+              className={cn("rounded-md px-3 py-1.5 text-xs font-bold transition-colors", view === "plan" ? "bg-[var(--surface-3)] text-[var(--text)]" : "text-[var(--text-faint)] hover:text-[var(--text)]")}
+            >
+              📋 Bảng
+            </button>
+            <button
+              onClick={() => setView("cards")}
+              className={cn("rounded-md px-3 py-1.5 text-xs font-bold transition-colors", view === "cards" ? "bg-[var(--surface-3)] text-[var(--text)]" : "text-[var(--text-faint)] hover:text-[var(--text)]")}
+            >
+              🗂️ Thẻ
+            </button>
+          </div>
+          {isManager && (
+            <button
+              onClick={() => setShowNewTask(true)}
+              className="btn-accent flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-all shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5"
+            >
+              + Bài mới
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Tasks list */}
+      {/* Danh sách */}
       {clientTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-[var(--radius)] border border-dashed border-[var(--border)] py-20 text-center bg-[var(--surface)]">
-          <p className="text-[var(--text-muted)] text-lg font-medium">Chưa có công việc nào.</p>
-          <p className="text-[var(--text-faint)] text-sm mt-1">Tạo task đầu tiên để bắt đầu làm việc với khách hàng này.</p>
+          <p className="text-[var(--text-muted)] text-lg font-medium">Chưa có bài nội dung nào.</p>
+          <p className="text-[var(--text-faint)] text-sm mt-1">Tạo bài đầu tiên để lên kế hoạch nội dung cho khách này.</p>
           {isManager && (
             <button
               onClick={() => setShowNewTask(true)}
               className="mt-6 text-sm font-bold text-[var(--accent)] hover:underline flex items-center gap-1"
             >
-              + Tạo task ngay
+              + Tạo bài ngay
             </button>
           )}
         </div>
+      ) : view === "plan" ? (
+        <ContentPlanTable clientId={clientId} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {clientTasks.map((t) => (

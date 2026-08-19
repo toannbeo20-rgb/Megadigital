@@ -9,7 +9,11 @@ import {
   BRIEF_FIELDS,
   PRIORITY_META,
   TASK_FORMATS,
+  CHANNELS,
+  FUNNEL_META,
+  planStatus,
   type BriefData,
+  type Funnel,
   type Priority,
   type TaskKind,
 } from "@/lib/types";
@@ -39,6 +43,9 @@ export default function TaskDetailPage() {
   const [editKind, setEditKind] = useState<TaskKind>(null);
   const [editPriority, setEditPriority] = useState<Priority>("trung_binh");
   const [editFormat, setEditFormat] = useState<string>("");
+  const [editChannel, setEditChannel] = useState<string>("");
+  const [editFunnel, setEditFunnel] = useState<string>("");
+  const [editPublishDate, setEditPublishDate] = useState<string>("");
   const [editDepends, setEditDepends] = useState<string | null>(null);
   const [editBrief, setEditBrief] = useState<string>("");
   const [editBriefData, setEditBriefData] = useState<BriefData>({});
@@ -56,6 +63,9 @@ export default function TaskDetailPage() {
       setEditKind(task.kind);
       setEditPriority(task.priority ?? "trung_binh");
       setEditFormat(task.format ?? "");
+      setEditChannel(task.channel ?? "");
+      setEditFunnel(task.funnel ?? "");
+      setEditPublishDate(task.publish_date ?? "");
       setEditDepends(task.depends_on_task_id);
       setEditBrief(task.brief ?? "");
       setEditBriefData(task.brief_data ?? {});
@@ -98,6 +108,9 @@ export default function TaskDetailPage() {
       kind: editKind,
       priority: editPriority,
       format: editFormat || null,
+      channel: editChannel || null,
+      funnel: editFunnel || null,
+      publish_date: editPublishDate || null,
       depends_on_task_id: editDepends,
       brief: editBrief.trim() ? editBrief.trim() : null,
       brief_data: hasBrief ? bd : null,
@@ -294,6 +307,55 @@ export default function TaskDetailPage() {
           )}
         </FieldBlock>
 
+        {/* Kênh đăng */}
+        <FieldBlock label="Kênh đăng">
+          {canEdit ? (
+            <select
+              value={editChannel}
+              onChange={(e) => setEditChannel(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]">
+              <option value="">— Chưa chọn —</option>
+              {CHANNELS.map((c) => (<option key={c} value={c}>{c}</option>))}
+            </select>
+          ) : (
+            <p className="text-sm">{task.channel || <span className="text-[var(--text-faint)]">Chưa chọn</span>}</p>
+          )}
+        </FieldBlock>
+
+        {/* Phễu nội dung */}
+        <FieldBlock label="Phễu nội dung">
+          <div className="flex gap-2">
+            {(Object.keys(FUNNEL_META) as Funnel[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => canEdit && setEditFunnel(editFunnel === f ? "" : f)}
+                title={FUNNEL_META[f].hint}
+                className={cn(
+                  "flex-1 rounded-lg border py-2 text-xs font-bold transition-all",
+                  editFunnel === f ? FUNNEL_META[f].className : "bg-transparent text-[var(--text-faint)] border-[var(--border)] hover:border-[var(--border-bright)]",
+                  !canEdit && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {FUNNEL_META[f].label}
+              </button>
+            ))}
+          </div>
+        </FieldBlock>
+
+        {/* Ngày đăng dự kiến */}
+        <FieldBlock label="Ngày đăng dự kiến">
+          {canEdit ? (
+            <input
+              type="date"
+              value={editPublishDate}
+              onChange={(e) => setEditPublishDate(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            />
+          ) : (
+            <p className="text-sm">{task.publish_date || <span className="text-[var(--text-faint)]">Chưa đặt</span>}</p>
+          )}
+        </FieldBlock>
+
         {/* Depends on */}
         <FieldBlock label="Chờ task này xong trước">
           {canEdit ? (
@@ -336,6 +398,25 @@ export default function TaskDetailPage() {
                 <button onClick={save} className={cn("flex-1 rounded-xl border px-3 py-2.5 text-sm font-bold transition-all", saved ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400" : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--border-bright)]")}>{saved ? "✓ Đã lưu" : "💾 Lưu"}</button>
               )}
             </div>
+          )}
+
+          {/* Đánh dấu đã đăng (xuất bản) */}
+          {canEdit && (
+            task.published_at ? (
+              <button
+                onClick={() => updateTask(task.id, { published_at: null })}
+                className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm font-bold text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              >
+                📢 Đã đăng {new Date(task.published_at).toLocaleDateString("vi-VN")} · bỏ đánh dấu
+              </button>
+            ) : (
+              <button
+                onClick={() => updateTask(task.id, { published_at: new Date().toISOString() })}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm font-semibold text-[var(--text-muted)] hover:border-emerald-500/40 hover:text-emerald-400 transition-colors"
+              >
+                📢 Đánh dấu đã đăng
+              </button>
+            )
           )}
 
           {/* Chuyển sang khâu sau: tạo task design/editor nối chuỗi */}

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "@/lib/store";
-import type { TaskKind, Priority } from "@/lib/types";
-import { PRIORITY_META, TASK_FORMATS } from "@/lib/types";
+import type { TaskKind, Priority, Funnel } from "@/lib/types";
+import { PRIORITY_META, TASK_FORMATS, CHANNELS, FUNNEL_META } from "@/lib/types";
 import { IconClose } from "./icons";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,9 @@ export default function QuickAddTask({
   const [kind, setKind] = useState<TaskKind>(defaultKind ?? null);
   const [priority, setPriority] = useState<Priority>("trung_binh");
   const [format, setFormat] = useState<string>("");
+  const [channel, setChannel] = useState<string>("");
+  const [funnel, setFunnel] = useState<string>("");
+  const [publishDate, setPublishDate] = useState<string>("");
   const [dependsOn, setDependsOn] = useState<string>(defaultDependsOn ?? "");
   const [brief, setBrief] = useState<string>("");
   const [mounted, setMounted] = useState(false);
@@ -54,6 +57,9 @@ export default function QuickAddTask({
       kind: showMore ? kind : null,
       priority: showMore ? priority : "trung_binh",
       format: showMore && format ? format : null,
+      channel: showMore && channel ? channel : null,
+      funnel: showMore && funnel ? funnel : null,
+      publish_date: showMore && publishDate ? publishDate : null,
       depends_on_task_id: showMore && dependsOn ? dependsOn : null,
       brief: showMore && brief.trim() ? brief.trim() : null,
     });
@@ -159,6 +165,35 @@ export default function QuickAddTask({
                   ))}
                 </select>
               </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Kênh đăng">
+                  <select value={channel} onChange={(e) => setChannel(e.target.value)} className="ui-select">
+                    <option value="">— Chưa chọn —</option>
+                    {CHANNELS.map((c) => (<option key={c} value={c}>{c}</option>))}
+                  </select>
+                </Field>
+                <Field label="Ngày đăng">
+                  <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="ui-select" />
+                </Field>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Phễu nội dung</label>
+                <div className="flex gap-2">
+                  {(Object.keys(FUNNEL_META) as Funnel[]).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setFunnel(funnel === f ? "" : f)}
+                      className={cn(
+                        "flex-1 rounded-lg border px-2 py-1.5 text-xs font-bold transition-all",
+                        funnel === f ? FUNNEL_META[f].className : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-faint)] hover:text-[var(--text)]"
+                      )}
+                    >
+                      {FUNNEL_META[f].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Field label="Chờ task khác xong (handoff)">
                 <select value={dependsOn} onChange={(e) => setDependsOn(e.target.value)} className="ui-select">
                   <option value="">— Không —</option>

@@ -14,6 +14,28 @@ export type JobStatus = "pitch" | "dang_chay" | "cho_duyet" | "done";
 export type TaskStatus = "ton" | "dang_lam" | "cho_duyet" | "xong";
 export type TaskKind = "content" | "design" | "media" | "account" | null;
 
+// ---- Content Plan ----
+export const CHANNELS = ["Facebook", "Instagram", "TikTok", "YouTube", "Zalo", "Website", "Khác"] as const;
+
+export type Funnel = "tofu" | "mofu" | "bofu";
+export const FUNNEL_META: Record<Funnel, { label: string; hint: string; className: string }> = {
+  tofu: { label: "TOFU", hint: "Nhận biết", className: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  mofu: { label: "MOFU", hint: "Cân nhắc", className: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
+  bofu: { label: "BOFU", hint: "Chốt", className: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
+};
+
+// Trạng thái xuất bản (suy ra từ task.status + published_at) — khớp sheet content plan
+export function planStatus(t: { status: TaskStatus; published_at?: string | null }): { label: string; className: string } {
+  if (t.published_at) return { label: "Đã đăng", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
+  switch (t.status) {
+    case "ton": return { label: "Kế hoạch", className: "bg-slate-500/15 text-slate-400 border-slate-500/25" };
+    case "dang_lam": return { label: "Đang làm", className: "bg-[var(--accent-soft)] text-[var(--accent)] border-[rgba(170,237,42,0.3)]" };
+    case "cho_duyet": return { label: "Chờ duyệt", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
+    case "xong": return { label: "Đã duyệt", className: "bg-blue-500/15 text-blue-400 border-blue-500/30" };
+    default: return { label: "—", className: "bg-[var(--surface-2)] text-[var(--text-muted)] border-[var(--border)]" };
+  }
+}
+
 // Định dạng sản phẩm bàn giao (poster / short video / …) — để mềm, đa ngành
 export const TASK_FORMATS = [
   "Bài viết",
@@ -88,6 +110,10 @@ export interface Task {
   kind: TaskKind;
   priority: Priority | null; // mức độ ưu tiên (thay cho weight)
   format?: string | null; // định dạng sản phẩm: poster / short video / …
+  channel?: string | null; // kênh đăng: Facebook / Instagram / …
+  funnel?: string | null; // phễu nội dung: tofu | mofu | bofu
+  publish_date?: string | null; // ngày dự kiến đăng
+  published_at?: string | null; // thời điểm đã đăng thật
   deadline: string; // date
   depends_on_task_id: string | null;
   status: TaskStatus;
