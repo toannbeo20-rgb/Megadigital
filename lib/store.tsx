@@ -127,7 +127,8 @@ async function tasksWriteResilient<T extends Record<string, unknown>>(
   payload: T
 ) {
   const p: Record<string, unknown> = { ...payload };
-  for (let i = 0; i < 3; i++) {
+  // Lặp đủ nhiều để strip hết các cột chưa migrate (mỗi vòng bỏ 1 cột thiếu)
+  for (let i = 0; i < Object.keys(p).length + 1; i++) {
     const res = await run(p as T);
     if (!res.error) return res;
     const col = missingColumn(res.error.message);

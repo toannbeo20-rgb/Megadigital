@@ -165,21 +165,13 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Danh sách */}
-      {clientTasks.length === 0 ? (
+      {view === "plan" ? (
+        <ContentPlanTable clientId={clientId} />
+      ) : clientTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-[var(--radius)] border border-dashed border-[var(--border)] py-20 text-center bg-[var(--surface)]">
           <p className="text-[var(--text-muted)] text-lg font-medium">Chưa có bài nội dung nào.</p>
-          <p className="text-[var(--text-faint)] text-sm mt-1">Tạo bài đầu tiên để lên kế hoạch nội dung cho khách này.</p>
-          {isManager && (
-            <button
-              onClick={() => setShowNewTask(true)}
-              className="mt-6 text-sm font-bold text-[var(--accent)] hover:underline flex items-center gap-1"
-            >
-              + Tạo bài ngay
-            </button>
-          )}
+          <p className="text-[var(--text-faint)] text-sm mt-1">Chuyển sang chế độ Bảng để thêm bài như bảng tính.</p>
         </div>
-      ) : view === "plan" ? (
-        <ContentPlanTable clientId={clientId} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {clientTasks.map((t) => (
