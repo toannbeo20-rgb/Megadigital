@@ -13,6 +13,7 @@ import {
 import NotificationBell from "./NotificationBell";
 import QuickAddTask from "./QuickAddTask";
 import UserSwitcher from "./UserSwitcher";
+import ApprovalPopup from "./ApprovalPopup";
 
 const NAV = [
   { href: "/", label: "Hôm nay", Icon: IconToday },
@@ -148,6 +149,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       {addOpen && <QuickAddTask onClose={() => setAddOpen(false)} />}
+      <ApprovalPopup />
     </div>
   );
 }

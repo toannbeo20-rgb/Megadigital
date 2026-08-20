@@ -420,7 +420,7 @@ export default function TaskDetailPage() {
           )}
 
           {/* Chuyển sang khâu sau: tạo task design/editor nối chuỗi */}
-          {isManager && (
+          {canEdit && (
             <button
               onClick={() => setShowNextTask(true)}
               className="w-full rounded-xl border border-dashed border-[var(--border)] px-3 py-2.5 text-sm font-semibold text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"

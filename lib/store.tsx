@@ -104,6 +104,8 @@ interface StoreValue {
   scheduleEntries: ScheduleEntry[];
   addScheduleEntry: (date: string, note: string, slot: ScheduleSlot) => Promise<void>;
   deleteScheduleEntry: (id: string) => Promise<void>;
+  approvalPopup: Notification | null;
+  dismissApprovalPopup: () => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -156,6 +158,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [contents, setContents] = useState<Content[]>([]);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [approvalPopup, setApprovalPopup] = useState<Notification | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(useSupabase);
   const realtimeRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
@@ -320,6 +323,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         (payload) => {
           const n = mapNoti(payload.new as Parameters<typeof mapNoti>[0]);
           setNotifications((prev) => (prev.find((x) => x.id === n.id) ? prev : [n, ...prev]));
+          // Nội dung được duyệt → bật popup ăn mừng cho người viết
+          if (n.text.startsWith("🎉")) setApprovalPopup(n);
         }
       )
       .subscribe();
@@ -641,8 +646,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (nextTaskStatus && task && task.status !== nextTaskStatus) {
         moveTask(current.task_id, nextTaskStatus);
       }
+
+      // ĐƯỢC DUYỆT → báo (push + chuông + popup) cho người VIẾT nội dung
+      if (patch.approval_status === "khach_ok" && current.created_by && current.created_by !== currentUserId) {
+        sendPushToUsers(
+          [current.created_by],
+          "🎉 Nội dung đã được duyệt",
+          `"${current.title}" đã được duyệt. Bạn có thể tạo việc cho design/editor.`,
+          `/cong-viec/${current.task_id}`,
+          `🎉 Nội dung "${current.title}" đã được duyệt!`
+        );
+      }
     }
-  }, [useSupabase, supabase, contents, tasks, moveTask]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [useSupabase, supabase, contents, tasks, moveTask, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Xoá toàn bộ task (manager) — content/comment của task tự xoá theo cascade.
   const deleteAllTasks = useCallback(async () => {
@@ -740,8 +756,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       scheduleEntries,
       addScheduleEntry,
       deleteScheduleEntry,
+      approvalPopup,
+      dismissApprovalPopup: () => setApprovalPopup(null),
     }),
-    [users, clientsState, jobs, tasks, comments, contents, scheduleEntries, notifications, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, deleteAllTasks, addJob, updateJob, addComment, addContent, updateContent, setPresence, markAllNotisRead, addScheduleEntry, deleteScheduleEntry]
+    [users, clientsState, jobs, tasks, comments, contents, scheduleEntries, notifications, approvalPopup, currentUser, loading, addClient, updateClient, deleteClient, addTask, moveTask, updateTask, deleteAllTasks, addJob, updateJob, addComment, addContent, updateContent, setPresence, markAllNotisRead, addScheduleEntry, deleteScheduleEntry]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -18,16 +18,18 @@ function displayName(u?: User) {
 }
 
 // Bước tiếp theo hợp lệ (luồng nội bộ 3 trạng thái + nhánh Cần sửa)
-function nextActions(s: ApprovalStatus): { to: ApprovalStatus; label: string; kind: "primary" | "ok" | "warn" | "muted" }[] {
+// managerOnly = quyết định duyệt/từ chối, chỉ quản lý; người làm chỉ trình duyệt.
+type Act = { to: ApprovalStatus; label: string; kind: "primary" | "ok" | "warn" | "muted"; managerOnly?: boolean };
+function nextActions(s: ApprovalStatus): Act[] {
   switch (s) {
     case "draft":     return [{ to: "noi_bo", label: "Trình duyệt", kind: "primary" }];
     case "noi_bo":    return [
-      { to: "khach_ok", label: "Duyệt ✓", kind: "ok" },
-      { to: "khach_sua", label: "Yêu cầu sửa", kind: "warn" },
+      { to: "khach_ok", label: "Duyệt ✓", kind: "ok", managerOnly: true },
+      { to: "khach_sua", label: "Yêu cầu sửa", kind: "warn", managerOnly: true },
       { to: "draft", label: "Về nháp", kind: "muted" },
     ];
     case "khach_sua": return [{ to: "noi_bo", label: "Đã sửa, trình lại", kind: "primary" }];
-    case "khach_ok":  return [{ to: "noi_bo", label: "Mở lại", kind: "muted" }];
+    case "khach_ok":  return [{ to: "noi_bo", label: "Mở lại", kind: "muted", managerOnly: true }];
     default:          return [{ to: "noi_bo", label: "Về chờ duyệt", kind: "primary" }];
   }
 }
@@ -152,7 +154,9 @@ export default function ContentEditor({ task }: { task: Task }) {
             {content && (
               <>
                 <span className="mr-1 text-xs text-[var(--text-faint)]">Lưu khi đổi nội dung sẽ tăng phiên bản.</span>
-                {nextActions(content.approval_status).map((a) => (
+                {nextActions(content.approval_status)
+                  .filter((a) => !a.managerOnly || isManager)
+                  .map((a) => (
                   <button
                     key={a.to}
                     onClick={() => updateContent(content.id, { approval_status: a.to })}
@@ -161,6 +165,9 @@ export default function ContentEditor({ task }: { task: Task }) {
                     {a.label}
                   </button>
                 ))}
+                {content.approval_status === "noi_bo" && !isManager && (
+                  <span className="self-center text-xs text-[var(--text-faint)]">Đang chờ quản lý duyệt…</span>
+                )}
               </>
             )}
           </div>
